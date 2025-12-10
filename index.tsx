@@ -255,8 +255,6 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({
       <a
         href={item.url}
         onClick={handleClick}
-        target="_blank"
-        rel="noopener noreferrer"
         className={containerClasses}
         style={getBackgroundStyle()}
         draggable={false}
