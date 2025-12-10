@@ -14,6 +14,11 @@ export default defineConfig(({ mode }) => {
         react(),
         VitePWA({
           registerType: 'autoUpdate',
+          injectRegister: 'auto',
+          devOptions: {
+            enabled: true,
+            type: 'module'
+          },
           includeAssets: ['icon-192.png', 'icon-512.png'],
           manifest: {
             name: 'NavHub',
