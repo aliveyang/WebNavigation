@@ -79,10 +79,11 @@ const getRandomGradient = () => {
 
 const formatUrl = (url: string) => {
   const trimmed = url.trim();
-  if (trimmed.includes('://')) {
-    return trimmed;
+  // If no protocol specified, add http:// by default (not https)
+  if (!trimmed.includes('://')) {
+    return `http://${trimmed}`;
   }
-  return `https://${trimmed}`;
+  return trimmed;
 };
 
 const getFaviconUrl = (url: string) => {
