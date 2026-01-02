@@ -830,17 +830,39 @@ const SyncModal = ({
     try {
       syncManager.enableSync(pin);
 
-      // 立即尝试双向同步（会自动比较时间戳并选择最新数据）
+      // 先检查云端是否有数据
       const storedBookmarks = localStorage.getItem(STORAGE_KEY);
       const storedSettings = localStorage.getItem(SETTINGS_KEY);
       const localBookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
       const localSettings = storedSettings ? JSON.parse(storedSettings) : {};
 
-      const syncedData = await syncManager.sync(localBookmarks, localSettings, true);
+      // 尝试拉取云端数据
+      const cloudData = await syncManager.pullFromCloud();
 
-      // 更新本地数据为同步后的数据
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedData.bookmarks));
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(syncedData.settings));
+      // 如果云端有数据且本地也有数据，让用户选择
+      if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
+        const choice = confirm(
+          `Cloud has ${cloudData.bookmarks.length} bookmark(s), local has ${localBookmarks.length} bookmark(s).\n\n` +
+          `Click OK to use CLOUD data (remote bookmarks will replace local).\n` +
+          `Click Cancel to use LOCAL data (local bookmarks will replace remote).`
+        );
+
+        if (choice) {
+          // 使用云端数据
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData.bookmarks));
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(cloudData.settings || localSettings));
+        } else {
+          // 使用本地数据，推送到云端
+          await syncManager.pushToCloud(localBookmarks, localSettings);
+        }
+      } else if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0) {
+        // 云端有数据，本地没有，直接使用云端数据
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData.bookmarks));
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(cloudData.settings || localSettings));
+      } else {
+        // 云端没有数据，推送本地数据
+        await syncManager.pushToCloud(localBookmarks, localSettings);
+      }
 
       // 触发页面刷新以显示同步后的数据
       window.location.reload();
