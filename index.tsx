@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
+import { syncManager, type SyncStatus } from './src/syncManager';
 
 // --- Types ---
 type BackgroundType = 'gradient' | 'icon' | 'image' | 'library';
@@ -106,11 +107,37 @@ const fileToBase64 = (file: File): Promise<string> => {
 
 // --- Components ---
 
-const Header = ({ onAdd }: { onAdd?: () => void }) => (
+const Header = ({ onAdd, syncStatus, onSyncClick }: {
+  onAdd?: () => void;
+  syncStatus?: SyncStatus;
+  onSyncClick?: () => void;
+}) => (
   <header className="relative flex flex-col gap-4 py-8 px-4 items-center justify-center animate-in fade-in slide-in-from-top-4 duration-500">
+     {/* Sync Button */}
+    {onSyncClick && (
+        <button
+            onClick={onSyncClick}
+            className="absolute left-4 top-8 p-3 bg-white/10 hover:bg-white/20 active:scale-95 rounded-full backdrop-blur-md transition-all text-white shadow-lg ring-1 ring-white/5 z-20"
+            aria-label="Sync Settings"
+            title={syncStatus?.enabled ? 'Sync enabled' : 'Enable sync'}
+        >
+            {syncStatus?.syncing ? (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 animate-spin">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+            ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                </svg>
+            )}
+            {syncStatus?.enabled && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full ring-2 ring-slate-900" />
+            )}
+        </button>
+    )}
      {/* Add Button */}
     {onAdd && (
-        <button 
+        <button
             onClick={onAdd}
             className="absolute right-4 top-8 p-3 bg-white/10 hover:bg-white/20 active:scale-95 rounded-full backdrop-blur-md transition-all text-white shadow-lg ring-1 ring-white/5 z-20"
             aria-label="Add Bookmark"
@@ -768,6 +795,217 @@ const EditModal = ({
   );
 };
 
+// --- Sync Modal ---
+const SyncModal = ({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) => {
+  const [pin, setPin] = useState('');
+  const [isEnabling, setIsEnabling] = useState(false);
+  const [error, setError] = useState('');
+  const syncStatus = syncManager.getStatus();
+
+  useEffect(() => {
+    if (isOpen) {
+      setPin('');
+      setError('');
+      setIsEnabling(false);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleEnableSync = async () => {
+    if (pin.length < 4) {
+      setError('PIN code must be at least 4 characters');
+      return;
+    }
+
+    setIsEnabling(true);
+    setError('');
+
+    try {
+      syncManager.enableSync(pin);
+
+      // 立即尝试同步
+      const storedBookmarks = localStorage.getItem(STORAGE_KEY);
+      const storedSettings = localStorage.getItem(SETTINGS_KEY);
+      const bookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
+      const settings = storedSettings ? JSON.parse(storedSettings) : {};
+
+      await syncManager.pushToCloud(bookmarks, settings);
+
+      alert('Sync enabled successfully! Your data has been uploaded to the cloud.');
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to enable sync');
+    } finally {
+      setIsEnabling(false);
+    }
+  };
+
+  const handleDisableSync = () => {
+    if (confirm('Are you sure you want to disable sync? Your local data will not be affected.')) {
+      syncManager.disableSync();
+      onClose();
+    }
+  };
+
+  const handleManualSync = async () => {
+    setIsEnabling(true);
+    setError('');
+
+    try {
+      const storedBookmarks = localStorage.getItem(STORAGE_KEY);
+      const storedSettings = localStorage.getItem(SETTINGS_KEY);
+      const bookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
+      const settings = storedSettings ? JSON.parse(storedSettings) : {};
+
+      await syncManager.pushToCloud(bookmarks, settings);
+      alert('Manual sync completed successfully!');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sync failed');
+    } finally {
+      setIsEnabling(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-0">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+      <div className="relative bg-slate-800 w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-700/50 transform transition-all animate-in slide-in-from-bottom-10 fade-in">
+
+        {/* Modal Header */}
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-xl font-bold text-white tracking-tight">Cloud Sync</h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Status Display */}
+          <div className={`p-4 rounded-xl border ${syncStatus.enabled ? 'bg-green-500/10 border-green-500/30' : 'bg-slate-900/50 border-slate-700'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${syncStatus.enabled ? 'bg-green-500' : 'bg-slate-600'}`} />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-white">
+                  {syncStatus.enabled ? 'Sync Enabled' : 'Sync Disabled'}
+                </p>
+                {syncStatus.lastSyncTime && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Last sync: {new Date(syncStatus.lastSyncTime).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {!syncStatus.enabled ? (
+            // Enable Sync Form
+            <>
+              <div className="space-y-3">
+                <p className="text-sm text-slate-300">
+                  Enter a PIN code (4+ characters) to enable multi-device sync. Use the same PIN on other devices to sync your bookmarks.
+                </p>
+
+                <input
+                  type="text"
+                  placeholder="Enter PIN code (e.g., 1234)"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-500"
+                  autoFocus
+                />
+
+                {error && (
+                  <p className="text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  onClick={handleEnableSync}
+                  disabled={isEnabling || pin.length < 4}
+                  className="w-full px-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors shadow-lg shadow-blue-500/20"
+                >
+                  {isEnabling ? 'Enabling...' : 'Enable Sync'}
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-slate-700/50">
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  <strong>Note:</strong> Your PIN code is used to identify your sync account. Keep it secure and don't share it with others.
+                </p>
+              </div>
+            </>
+          ) : (
+            // Sync Management
+            <>
+              <div className="space-y-3">
+                <button
+                  onClick={handleManualSync}
+                  disabled={isEnabling || syncStatus.syncing}
+                  className="w-full px-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                >
+                  {isEnabling || syncStatus.syncing ? (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 animate-spin">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                      </svg>
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                      </svg>
+                      Sync Now
+                    </>
+                  )}
+                </button>
+
+                {error && (
+                  <p className="text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">
+                    {error}
+                  </p>
+                )}
+
+                {syncStatus.error && (
+                  <p className="text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">
+                    {syncStatus.error}
+                  </p>
+                )}
+
+                <button
+                  onClick={handleDisableSync}
+                  className="w-full px-4 py-3.5 rounded-xl bg-red-500/10 text-red-400 font-bold hover:bg-red-500/20 transition-colors"
+                >
+                  Disable Sync
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-slate-700/50">
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Your bookmarks are automatically synced when you make changes. Use "Sync Now" to force an immediate sync.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [settings, setSettings] = useState<AppSettings>({
@@ -780,39 +1018,85 @@ const App = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(null);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncManager.getStatus());
 
-  // Load from local storage
+  // 监听同步状态变化
   useEffect(() => {
-    try {
-      const storedBookmarks = localStorage.getItem(STORAGE_KEY);
-      if (storedBookmarks) {
-        setBookmarks(JSON.parse(storedBookmarks));
-      } else {
-        const defaults: Bookmark[] = [
-          { id: '1', title: 'Google', url: 'https://google.com', colorFrom: 'from-blue-500', colorTo: 'to-blue-600', bgType: 'icon' },
-          { id: '2', title: 'YouTube', url: 'https://youtube.com', colorFrom: 'from-red-500', colorTo: 'to-pink-600', bgType: 'library', iconKey: 'youtube' },
-          { id: '3', title: 'GitHub', url: 'https://github.com', colorFrom: 'from-slate-700', colorTo: 'to-slate-900', bgType: 'library', iconKey: 'github' },
-          { id: '4', title: 'ChatGPT', url: 'https://chat.openai.com', colorFrom: 'from-emerald-500', colorTo: 'to-teal-600', bgType: 'icon' },
-        ];
-        setBookmarks(defaults);
-      }
-
-      const storedSettings = localStorage.getItem(SETTINGS_KEY);
-      if (storedSettings) {
-        setSettings({ ...settings, ...JSON.parse(storedSettings) });
-      }
-    } catch (e) {
-      console.error("Failed to load settings", e);
-    }
+    const unsubscribe = syncManager.onStatusChange(setSyncStatus);
+    return unsubscribe;
   }, []);
 
-  // Save to local storage
+  // Load from local storage and sync
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const storedBookmarks = localStorage.getItem(STORAGE_KEY);
+        const storedSettings = localStorage.getItem(SETTINGS_KEY);
+
+        let localBookmarks: Bookmark[] = [];
+        let localSettings = settings;
+
+        if (storedBookmarks) {
+          localBookmarks = JSON.parse(storedBookmarks);
+        } else {
+          const defaults: Bookmark[] = [
+            { id: '1', title: 'Google', url: 'https://google.com', colorFrom: 'from-blue-500', colorTo: 'to-blue-600', bgType: 'icon' },
+            { id: '2', title: 'YouTube', url: 'https://youtube.com', colorFrom: 'from-red-500', colorTo: 'to-pink-600', bgType: 'library', iconKey: 'youtube' },
+            { id: '3', title: 'GitHub', url: 'https://github.com', colorFrom: 'from-slate-700', colorTo: 'to-slate-900', bgType: 'library', iconKey: 'github' },
+            { id: '4', title: 'ChatGPT', url: 'https://chat.openai.com', colorFrom: 'from-emerald-500', colorTo: 'to-teal-600', bgType: 'icon' },
+          ];
+          localBookmarks = defaults;
+        }
+
+        if (storedSettings) {
+          localSettings = { ...settings, ...JSON.parse(storedSettings) };
+        }
+
+        // 如果启用了同步，尝试同步数据
+        if (syncManager.getStatus().enabled) {
+          try {
+            const syncedData = await syncManager.sync(localBookmarks, localSettings);
+            setBookmarks(syncedData.bookmarks);
+            setSettings(syncedData.settings);
+            localStorage.setItem('navhub_last_modified', Date.now().toString());
+          } catch (error) {
+            console.error('Sync failed on startup:', error);
+            // 同步失败时使用本地数据
+            setBookmarks(localBookmarks);
+            setSettings(localSettings);
+          }
+        } else {
+          setBookmarks(localBookmarks);
+          setSettings(localSettings);
+        }
+      } catch (e) {
+        console.error("Failed to load settings", e);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Save to local storage and sync to cloud
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
+    localStorage.setItem('navhub_last_modified', Date.now().toString());
+
+    // 如果启用了同步，推送到云端（防抖）
+    if (syncManager.getStatus().enabled && bookmarks.length > 0) {
+      syncManager.debouncedPush(bookmarks, settings);
+    }
   }, [bookmarks]);
 
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    localStorage.setItem('navhub_last_modified', Date.now().toString());
+
+    // 如果启用了同步，推送到云端（防抖）
+    if (syncManager.getStatus().enabled) {
+      syncManager.debouncedPush(bookmarks, settings);
+    }
   }, [settings]);
 
   const handleSaveBookmark = (data: Partial<Bookmark>) => {
@@ -891,8 +1175,12 @@ const App = () => {
       )}
 
       <div className="relative z-10 max-w-2xl mx-auto px-6 pb-24 min-h-screen flex flex-col">
-        <Header onAdd={bookmarks.length === 0 ? () => { setSelectedBookmark(null); setIsEditModalOpen(true); } : undefined} />
-        
+        <Header
+          onAdd={bookmarks.length === 0 ? () => { setSelectedBookmark(null); setIsEditModalOpen(true); } : undefined}
+          syncStatus={syncStatus}
+          onSyncClick={() => setIsSyncModalOpen(true)}
+        />
+
         <SearchWidget searchEngine={settings.searchEngine} />
 
         <div className={`grid gap-4 ${getGridColsClass()} w-full animate-in fade-in slide-in-from-bottom-4 duration-700`}>
@@ -920,13 +1208,18 @@ const App = () => {
         title={selectedBookmark?.title || ''}
       />
 
-      <EditModal 
-        isOpen={isEditModalOpen} 
+      <EditModal
+        isOpen={isEditModalOpen}
         onClose={() => { setIsEditModalOpen(false); setSelectedBookmark(null); }}
         onSave={handleSaveBookmark}
         initialData={selectedBookmark || undefined}
         appSettings={settings}
         onUpdateAppSettings={handleUpdateSettings}
+      />
+
+      <SyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
       />
     </div>
   );
