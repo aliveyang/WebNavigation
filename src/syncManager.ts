@@ -115,6 +115,11 @@ class SyncManager {
       this.syncStatus.syncing = false;
       this.notifyListeners();
 
+      // 如果从云端拉取到数据，更新本地的 lastModified
+      if (data.lastModified) {
+        localStorage.setItem('navhub_last_modified', data.lastModified.toString());
+      }
+
       return data;
     } catch (error) {
       this.syncStatus.syncing = false;
@@ -156,6 +161,9 @@ class SyncManager {
       this.syncStatus.lastSyncTime = result.lastModified;
       this.syncStatus.syncing = false;
       this.notifyListeners();
+
+      // 更新本地的 lastModified 为云端返回的时间戳
+      localStorage.setItem('navhub_last_modified', result.lastModified.toString());
     } catch (error) {
       this.syncStatus.syncing = false;
       this.syncStatus.error = error instanceof Error ? error.message : 'Sync failed';

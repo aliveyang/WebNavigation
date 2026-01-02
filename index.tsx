@@ -841,7 +841,6 @@ const SyncModal = ({
       // 更新本地数据为同步后的数据
       localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedData.bookmarks));
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(syncedData.settings));
-      localStorage.setItem('navhub_last_modified', Date.now().toString());
 
       // 触发页面刷新以显示同步后的数据
       window.location.reload();
@@ -1064,7 +1063,7 @@ const App = () => {
             const syncedData = await syncManager.sync(localBookmarks, localSettings);
             setBookmarks(syncedData.bookmarks);
             setSettings(syncedData.settings);
-            localStorage.setItem('navhub_last_modified', Date.now().toString());
+            // 不要在这里更新时间戳，应该使用云端返回的时间戳
           } catch (error) {
             console.error('Sync failed on startup:', error);
             // 同步失败时使用本地数据
@@ -1086,7 +1085,6 @@ const App = () => {
   // Save to local storage and sync to cloud
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
-    localStorage.setItem('navhub_last_modified', Date.now().toString());
 
     // 如果启用了同步，推送到云端（防抖）
     if (syncManager.getStatus().enabled && bookmarks.length > 0) {
@@ -1096,7 +1094,6 @@ const App = () => {
 
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    localStorage.setItem('navhub_last_modified', Date.now().toString());
 
     // 如果启用了同步，推送到云端（防抖）
     if (syncManager.getStatus().enabled) {
