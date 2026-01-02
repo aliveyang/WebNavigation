@@ -165,7 +165,7 @@ class SyncManager {
   }
 
   // 双向同步
-  async sync(localBookmarks: any[], localSettings: any): Promise<{ bookmarks: any[], settings: any }> {
+  async sync(localBookmarks: any[], localSettings: any, isFirstSync: boolean = false): Promise<{ bookmarks: any[], settings: any }> {
     if (!this.pin) {
       throw new Error('Sync not enabled');
     }
@@ -180,7 +180,15 @@ class SyncManager {
         return { bookmarks: localBookmarks, settings: localSettings };
       }
 
-      // 3. 比较时间戳，使用最新的数据
+      // 3. 如果是首次同步（刚启用同步），优先使用云端数据
+      if (isFirstSync) {
+        return {
+          bookmarks: cloudData.bookmarks || localBookmarks,
+          settings: cloudData.settings || localSettings,
+        };
+      }
+
+      // 4. 比较时间戳，使用最新的数据
       const localLastModified = parseInt(localStorage.getItem('navhub_last_modified') || '0');
       const cloudLastModified = cloudData.lastModified || 0;
 

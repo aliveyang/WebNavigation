@@ -830,16 +830,21 @@ const SyncModal = ({
     try {
       syncManager.enableSync(pin);
 
-      // 立即尝试同步
+      // 立即尝试双向同步（会自动比较时间戳并选择最新数据）
       const storedBookmarks = localStorage.getItem(STORAGE_KEY);
       const storedSettings = localStorage.getItem(SETTINGS_KEY);
-      const bookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
-      const settings = storedSettings ? JSON.parse(storedSettings) : {};
+      const localBookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
+      const localSettings = storedSettings ? JSON.parse(storedSettings) : {};
 
-      await syncManager.pushToCloud(bookmarks, settings);
+      const syncedData = await syncManager.sync(localBookmarks, localSettings, true);
 
-      alert('Sync enabled successfully! Your data has been uploaded to the cloud.');
-      onClose();
+      // 更新本地数据为同步后的数据
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedData.bookmarks));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(syncedData.settings));
+      localStorage.setItem('navhub_last_modified', Date.now().toString());
+
+      // 触发页面刷新以显示同步后的数据
+      window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to enable sync');
     } finally {
