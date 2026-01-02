@@ -799,9 +799,11 @@ const EditModal = ({
 const SyncModal = ({
   isOpen,
   onClose,
+  onSyncComplete,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  onSyncComplete: (bookmarks: Bookmark[], settings: AppSettings) => void;
 }) => {
   const [pin, setPin] = useState('');
   const [isEnabling, setIsEnabling] = useState(false);
@@ -839,6 +841,9 @@ const SyncModal = ({
       // 尝试拉取云端数据
       const cloudData = await syncManager.pullFromCloud();
 
+      let finalBookmarks = localBookmarks;
+      let finalSettings = localSettings;
+
       // 如果云端有数据且本地也有数据，让用户选择
       if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
         const choice = confirm(
@@ -849,23 +854,28 @@ const SyncModal = ({
 
         if (choice) {
           // 使用云端数据
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData.bookmarks));
-          localStorage.setItem(SETTINGS_KEY, JSON.stringify(cloudData.settings || localSettings));
+          finalBookmarks = cloudData.bookmarks;
+          finalSettings = cloudData.settings || localSettings;
         } else {
           // 使用本地数据，推送到云端
           await syncManager.pushToCloud(localBookmarks, localSettings);
         }
       } else if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0) {
         // 云端有数据，本地没有，直接使用云端数据
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData.bookmarks));
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(cloudData.settings || localSettings));
+        finalBookmarks = cloudData.bookmarks;
+        finalSettings = cloudData.settings || localSettings;
       } else {
         // 云端没有数据，推送本地数据
         await syncManager.pushToCloud(localBookmarks, localSettings);
       }
 
-      // 触发页面刷新以显示同步后的数据
-      window.location.reload();
+      // 更新本地存储
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalBookmarks));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalSettings));
+
+      // 通过回调更新 React state
+      onSyncComplete(finalBookmarks, finalSettings);
+      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to enable sync');
     } finally {
@@ -897,8 +907,9 @@ const SyncModal = ({
       localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedData.bookmarks));
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(syncedData.settings));
 
-      // 刷新页面以显示最新数据
-      window.location.reload();
+      // 通过回调更新 React state
+      onSyncComplete(syncedData.bookmarks, syncedData.settings);
+      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sync failed');
     } finally {
@@ -1251,6 +1262,10 @@ const App = () => {
       <SyncModal
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
+        onSyncComplete={(newBookmarks, newSettings) => {
+          setBookmarks(newBookmarks);
+          setSettings(newSettings);
+        }}
       />
     </div>
   );
