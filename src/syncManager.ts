@@ -1,4 +1,7 @@
 // 同步管理模块
+import { syncRateLimiter } from './utils/rateLimit';
+import { hashPin } from './utils/crypto';
+
 export interface SyncData {
   bookmarks: any[] | null;
   settings: any | null;
@@ -13,7 +16,7 @@ export interface SyncStatus {
 }
 
 class SyncManager {
-  private pin: string | null = null;
+  private pinHash: string | null = null;
   private deviceId: string | null = null;
   private syncStatus: SyncStatus = {
     enabled: false,
@@ -30,11 +33,11 @@ class SyncManager {
 
   // 加载同步配置
   private loadConfig() {
-    const pin = localStorage.getItem('navhub_sync_pin');
+    const pinHash = localStorage.getItem('navhub_sync_pin_hash');
     const deviceId = localStorage.getItem('navhub_device_id');
 
-    if (pin) {
-      this.pin = pin;
+    if (pinHash) {
+      this.pinHash = pinHash;
       this.syncStatus.enabled = true;
     }
 
@@ -55,13 +58,17 @@ class SyncManager {
   }
 
   // 启用同步
-  enableSync(pin: string) {
+  async enableSync(pin: string) {
     if (pin.length < 4) {
       throw new Error('PIN code must be at least 4 characters');
     }
 
-    this.pin = pin;
-    localStorage.setItem('navhub_sync_pin', pin);
+    // 哈希 PIN 码
+    const pinHash = await hashPin(pin);
+    this.pinHash = pinHash;
+
+    // 存储哈希后的 PIN
+    localStorage.setItem('navhub_sync_pin_hash', pinHash);
     this.syncStatus.enabled = true;
     this.syncStatus.error = null;
     this.notifyListeners();
@@ -69,8 +76,8 @@ class SyncManager {
 
   // 禁用同步
   disableSync() {
-    this.pin = null;
-    localStorage.removeItem('navhub_sync_pin');
+    this.pinHash = null;
+    localStorage.removeItem('navhub_sync_pin_hash');
     this.syncStatus.enabled = false;
     this.syncStatus.error = null;
     this.notifyListeners();
@@ -94,8 +101,14 @@ class SyncManager {
 
   // 从云端拉取数据
   async pullFromCloud(): Promise<SyncData | null> {
-    if (!this.pin) {
+    if (!this.pinHash) {
       throw new Error('Sync not enabled');
+    }
+
+    // 检查速率限制
+    if (!syncRateLimiter.canMakeRequest()) {
+      const remaining = syncRateLimiter.getRemainingRequests();
+      throw new Error(`Rate limit exceeded. ${remaining} requests remaining. Please try again later.`);
     }
 
     this.syncStatus.syncing = true;
@@ -103,7 +116,8 @@ class SyncManager {
     this.notifyListeners();
 
     try {
-      const response = await fetch(`/api/sync/get?pin=${encodeURIComponent(this.pin)}`);
+      // 使用哈希后的 PIN 作为键
+      const response = await fetch(`/api/sync/get?pin=${encodeURIComponent(this.pinHash)}`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -131,8 +145,14 @@ class SyncManager {
 
   // 推送数据到云端
   async pushToCloud(bookmarks: any[], settings: any): Promise<void> {
-    if (!this.pin) {
+    if (!this.pinHash) {
       throw new Error('Sync not enabled');
+    }
+
+    // 检查速率限制
+    if (!syncRateLimiter.canMakeRequest()) {
+      const remaining = syncRateLimiter.getRemainingRequests();
+      throw new Error(`Rate limit exceeded. ${remaining} requests remaining. Please try again later.`);
     }
 
     this.syncStatus.syncing = true;
@@ -146,7 +166,7 @@ class SyncManager {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          pin: this.pin,
+          pin: this.pinHash, // 使用哈希后的 PIN
           bookmarks,
           settings,
         }),

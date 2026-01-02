@@ -5,10 +5,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
+    const isProduction = mode === 'production';
+
     return {
       server: {
-        port: 3000,
-        host: '0.0.0.0',
+        port: 5173,
+        host: 'localhost',
       },
       plugins: [
         react(),
@@ -55,6 +57,9 @@ export default defineConfig(({ mode }) => {
                   expiration: {
                     maxEntries: 10,
                     maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200]
                   }
                 }
               },
@@ -66,6 +71,23 @@ export default defineConfig(({ mode }) => {
                   expiration: {
                     maxEntries: 10,
                     maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200]
+                  }
+                }
+              },
+              {
+                urlPattern: /^https:\/\/www\.google\.com\/s2\/favicons.*/i,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'favicon-cache',
+                  expiration: {
+                    maxEntries: 100,
+                    maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200]
                   }
                 }
               }
@@ -73,6 +95,48 @@ export default defineConfig(({ mode }) => {
           }
         })
       ],
+      build: {
+        // 生产环境优化
+        minify: isProduction ? 'terser' : false,
+        terserOptions: isProduction ? {
+          compress: {
+            drop_console: true, // 移除 console.log
+            drop_debugger: true, // 移除 debugger
+            pure_funcs: ['console.log', 'console.info', 'console.debug'], // 移除特定函数调用
+          },
+          format: {
+            comments: false, // 移除注释
+          },
+        } : undefined,
+        // 代码分割
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              // 将 React 相关库打包到一起
+              'react-vendor': ['react', 'react-dom'],
+              // 将工具函数打包到一起
+              'utils': ['./src/utils/index.ts', './src/utils/performance.ts', './src/utils/imageOptimization.ts'],
+              // 将常量打包到一起
+              'constants': ['./src/constants/index.ts'],
+            },
+            // 优化文件名
+            chunkFileNames: 'assets/js/[name]-[hash].js',
+            entryFileNames: 'assets/js/[name]-[hash].js',
+            assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
+          },
+        },
+        // 设置 chunk 大小警告阈值
+        chunkSizeWarningLimit: 500,
+        // 启用 CSS 代码分割
+        cssCodeSplit: true,
+        // 生成 source map（开发环境）
+        sourcemap: !isProduction,
+      },
+      // 优化依赖预构建
+      optimizeDeps: {
+        include: ['react', 'react-dom'],
+        exclude: [],
+      },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
