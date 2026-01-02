@@ -979,7 +979,10 @@ const SyncModal = ({
 
         {/* Modal Header */}
         <div className="flex justify-between items-center mb-5">
-          <h2 className="text-xl font-bold text-white tracking-tight">Cloud Sync</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-white tracking-tight">Cloud Sync</h2>
+            <span className="text-xs text-slate-500 font-mono bg-slate-900/50 px-2 py-0.5 rounded">v1.0.0</span>
+          </div>
           <button
             onClick={onClose}
             className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
