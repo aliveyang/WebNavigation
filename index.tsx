@@ -887,11 +887,18 @@ const SyncModal = ({
     try {
       const storedBookmarks = localStorage.getItem(STORAGE_KEY);
       const storedSettings = localStorage.getItem(SETTINGS_KEY);
-      const bookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
-      const settings = storedSettings ? JSON.parse(storedSettings) : {};
+      const localBookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
+      const localSettings = storedSettings ? JSON.parse(storedSettings) : {};
 
-      await syncManager.pushToCloud(bookmarks, settings);
-      alert('Manual sync completed successfully!');
+      // 执行双向同步（会自动比较时间戳）
+      const syncedData = await syncManager.sync(localBookmarks, localSettings);
+
+      // 更新本地数据
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedData.bookmarks));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(syncedData.settings));
+
+      // 刷新页面以显示最新数据
+      window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sync failed');
     } finally {
