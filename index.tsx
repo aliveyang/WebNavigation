@@ -849,8 +849,8 @@ const SyncModal = ({
 
       // 如果云端有数据且本地也有数据，让用户选择
       if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
-        const cloudTitles = cloudData.bookmarks.map((b: any) => b.title).join(', ');
-        const localTitles = localBookmarks.map((b: any) => b.title).join(', ');
+        const cloudTitles = cloudData.bookmarks.map((b: any) => `  • ${b.title}`).join('\n');
+        const localTitles = localBookmarks.map((b: any) => `  • ${b.title}`).join('\n');
 
         const choice = confirm(
           `Both cloud and local have bookmarks:\n\n` +
@@ -915,17 +915,18 @@ const SyncModal = ({
 
       let finalBookmarks = localBookmarks;
       let finalSettings = localSettings;
+      let needsPush = false;
 
       // 如果云端有数据且本地也有数据，检查是否需要用户选择
       if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
-        // 比较时间戳
-        const localLastModified = parseInt(localStorage.getItem('navhub_last_modified') || '0');
-        const cloudLastModified = cloudData.lastModified || 0;
+        // 比较书签内容（通过 JSON 字符串比较）
+        const cloudBookmarksStr = JSON.stringify(cloudData.bookmarks.map((b: any) => ({ id: b.id, title: b.title, url: b.url })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
+        const localBookmarksStr = JSON.stringify(localBookmarks.map((b: any) => ({ id: b.id, title: b.title, url: b.url })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
 
-        // 如果时间戳不同，让用户选择
-        if (cloudLastModified !== localLastModified) {
-          const cloudTitles = cloudData.bookmarks.map((b: any) => b.title).join(', ');
-          const localTitles = localBookmarks.map((b: any) => b.title).join(', ');
+        // 如果内容不同，让用户选择
+        if (cloudBookmarksStr !== localBookmarksStr) {
+          const cloudTitles = cloudData.bookmarks.map((b: any) => `  • ${b.title}`).join('\n');
+          const localTitles = localBookmarks.map((b: any) => `  • ${b.title}`).join('\n');
 
           const choice = confirm(
             `Sync conflict detected!\n\n` +
@@ -941,10 +942,10 @@ const SyncModal = ({
             finalSettings = cloudData.settings || localSettings;
           } else {
             // 使用本地数据，推送到云端
-            await syncManager.pushToCloud(localBookmarks, localSettings);
+            needsPush = true;
           }
         } else {
-          // 时间戳相同，数据已同步，无需操作
+          // 内容相同，数据已同步，使用云端数据（确保时间戳一致）
           finalBookmarks = cloudData.bookmarks;
           finalSettings = cloudData.settings || localSettings;
         }
@@ -954,12 +955,17 @@ const SyncModal = ({
         finalSettings = cloudData.settings || localSettings;
       } else if (localBookmarks.length > 0) {
         // 本地有数据，云端没有，推送本地数据
-        await syncManager.pushToCloud(localBookmarks, localSettings);
+        needsPush = true;
       }
 
       // 更新本地数据
       localStorage.setItem(STORAGE_KEY, JSON.stringify(finalBookmarks));
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalSettings));
+
+      // 如果需要推送，在更新 state 之前推送
+      if (needsPush) {
+        await syncManager.pushToCloud(localBookmarks, localSettings);
+      }
 
       // 通过回调更新 React state
       onSyncComplete(finalBookmarks, finalSettings);
@@ -1191,15 +1197,11 @@ const App = () => {
     if (syncManager.getStatus().enabled && bookmarks.length > 0 && !isSyncing.current) {
       syncManager.debouncedPush(bookmarks, settings);
     }
-  }, [bookmarks]);
+  }, [bookmarks, settings]); // 依赖 settings，这样只触发一次
 
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-
-    // 如果启用了同步且不在同步过程中，推送到云端（防抖）
-    if (syncManager.getStatus().enabled && !isSyncing.current) {
-      syncManager.debouncedPush(bookmarks, settings);
-    }
+    // 不在这里推送，由上面的 useEffect 统一处理
   }, [settings]);
 
   const handleSaveBookmark = (data: Partial<Bookmark>) => {
