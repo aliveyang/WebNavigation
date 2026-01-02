@@ -800,10 +800,12 @@ const SyncModal = ({
   isOpen,
   onClose,
   onSyncComplete,
+  isSyncingRef,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSyncComplete: (bookmarks: Bookmark[], settings: AppSettings) => void;
+  isSyncingRef: React.MutableRefObject<boolean>;
 }) => {
   const [pin, setPin] = useState('');
   const [isEnabling, setIsEnabling] = useState(false);
@@ -828,6 +830,7 @@ const SyncModal = ({
 
     setIsEnabling(true);
     setError('');
+    isSyncingRef.current = true; // 标记开始同步
 
     try {
       syncManager.enableSync(pin);
@@ -846,10 +849,15 @@ const SyncModal = ({
 
       // 如果云端有数据且本地也有数据，让用户选择
       if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
+        const cloudTitles = cloudData.bookmarks.map((b: any) => b.title).join(', ');
+        const localTitles = localBookmarks.map((b: any) => b.title).join(', ');
+
         const choice = confirm(
-          `Cloud has ${cloudData.bookmarks.length} bookmark(s), local has ${localBookmarks.length} bookmark(s).\n\n` +
-          `Click OK to use CLOUD data (remote bookmarks will replace local).\n` +
-          `Click Cancel to use LOCAL data (local bookmarks will replace remote).`
+          `Both cloud and local have bookmarks:\n\n` +
+          `CLOUD bookmarks (${cloudData.bookmarks.length}):\n${cloudTitles}\n\n` +
+          `LOCAL bookmarks (${localBookmarks.length}):\n${localTitles}\n\n` +
+          `Click OK to use CLOUD data (remote replaces local).\n` +
+          `Click Cancel to use LOCAL data (local replaces remote).`
         );
 
         if (choice) {
@@ -880,6 +888,7 @@ const SyncModal = ({
       setError(err instanceof Error ? err.message : 'Failed to enable sync');
     } finally {
       setIsEnabling(false);
+      isSyncingRef.current = false; // 标记同步结束
     }
   };
 
@@ -893,6 +902,7 @@ const SyncModal = ({
   const handleManualSync = async () => {
     setIsEnabling(true);
     setError('');
+    isSyncingRef.current = true; // 标记开始同步
 
     try {
       const storedBookmarks = localStorage.getItem(STORAGE_KEY);
@@ -900,20 +910,65 @@ const SyncModal = ({
       const localBookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
       const localSettings = storedSettings ? JSON.parse(storedSettings) : {};
 
-      // 执行双向同步（会自动比较时间戳）
-      const syncedData = await syncManager.sync(localBookmarks, localSettings);
+      // 先拉取云端数据
+      const cloudData = await syncManager.pullFromCloud();
+
+      let finalBookmarks = localBookmarks;
+      let finalSettings = localSettings;
+
+      // 如果云端有数据且本地也有数据，检查是否需要用户选择
+      if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
+        // 比较时间戳
+        const localLastModified = parseInt(localStorage.getItem('navhub_last_modified') || '0');
+        const cloudLastModified = cloudData.lastModified || 0;
+
+        // 如果时间戳不同，让用户选择
+        if (cloudLastModified !== localLastModified) {
+          const cloudTitles = cloudData.bookmarks.map((b: any) => b.title).join(', ');
+          const localTitles = localBookmarks.map((b: any) => b.title).join(', ');
+
+          const choice = confirm(
+            `Sync conflict detected!\n\n` +
+            `CLOUD bookmarks (${cloudData.bookmarks.length}):\n${cloudTitles}\n\n` +
+            `LOCAL bookmarks (${localBookmarks.length}):\n${localTitles}\n\n` +
+            `Click OK to use CLOUD data.\n` +
+            `Click Cancel to use LOCAL data.`
+          );
+
+          if (choice) {
+            // 使用云端数据
+            finalBookmarks = cloudData.bookmarks;
+            finalSettings = cloudData.settings || localSettings;
+          } else {
+            // 使用本地数据，推送到云端
+            await syncManager.pushToCloud(localBookmarks, localSettings);
+          }
+        } else {
+          // 时间戳相同，数据已同步，无需操作
+          finalBookmarks = cloudData.bookmarks;
+          finalSettings = cloudData.settings || localSettings;
+        }
+      } else if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0) {
+        // 云端有数据，本地没有，直接使用云端数据
+        finalBookmarks = cloudData.bookmarks;
+        finalSettings = cloudData.settings || localSettings;
+      } else if (localBookmarks.length > 0) {
+        // 本地有数据，云端没有，推送本地数据
+        await syncManager.pushToCloud(localBookmarks, localSettings);
+      }
 
       // 更新本地数据
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedData.bookmarks));
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(syncedData.settings));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalBookmarks));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalSettings));
 
       // 通过回调更新 React state
-      onSyncComplete(syncedData.bookmarks, syncedData.settings);
+      onSyncComplete(finalBookmarks, finalSettings);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sync failed');
     } finally {
       setIsEnabling(false);
+      isSyncingRef.current = false; // 标记同步结束
     }
   };
 
@@ -1065,6 +1120,9 @@ const App = () => {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncManager.getStatus());
 
+  // 标志：是否正在同步（避免同步时触发自动推送）
+  const isSyncing = useRef(false);
+
   // 监听同步状态变化
   useEffect(() => {
     const unsubscribe = syncManager.onStatusChange(setSyncStatus);
@@ -1126,8 +1184,8 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
 
-    // 如果启用了同步，推送到云端（防抖）
-    if (syncManager.getStatus().enabled && bookmarks.length > 0) {
+    // 如果启用了同步且不在同步过程中，推送到云端（防抖）
+    if (syncManager.getStatus().enabled && bookmarks.length > 0 && !isSyncing.current) {
       syncManager.debouncedPush(bookmarks, settings);
     }
   }, [bookmarks]);
@@ -1135,8 +1193,8 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
-    // 如果启用了同步，推送到云端（防抖）
-    if (syncManager.getStatus().enabled) {
+    // 如果启用了同步且不在同步过程中，推送到云端（防抖）
+    if (syncManager.getStatus().enabled && !isSyncing.current) {
       syncManager.debouncedPush(bookmarks, settings);
     }
   }, [settings]);
@@ -1266,6 +1324,7 @@ const App = () => {
           setBookmarks(newBookmarks);
           setSettings(newSettings);
         }}
+        isSyncingRef={isSyncing}
       />
     </div>
   );
