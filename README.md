@@ -24,7 +24,7 @@
 
 支持四种背景样式：
 - **渐变色** - 自动生成的渐变背景 + 首字母
-- **图标库** - 内置 15+ 精美 SVG 图标（主页、星标、邮件、购物等）
+- **图标库** - 内置 50+ 精美 SVG 图标，涵盖系统、导航、社交、品牌、工具等多种类别
 - **网站图标** - 自动获取网站 favicon
 - **自定义图片** - 支持 URL 或本地上传
 
@@ -108,7 +108,7 @@ npm run preview
 2. 输入标题和 URL（无需输入协议，默认添加 `http://`）
 3. 选择背景样式：
    - **Color** - 随机渐变色，可点击"Shuffle Color"刷新
-   - **Library** - 从图标库选择预设图标
+   - **Library** - 从系统、品牌、社交等 50+ 种预设图标中选择
    - **Icon** - 自动获取网站 favicon
    - **Image** - 输入图片 URL 或上传本地图片
 4. 点击 **Save** 保存
@@ -275,6 +275,13 @@ interface AppSettings {
 ```typescript
 export const PRESET_ICONS: Record<string, string> = {
   'icon-name': 'M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z',
+  
+  // System Icons
+  'settings': '...',
+  'user': '...',
+  
+  // Brand Icons
+  'github': '...',
   // ... 更多图标
 };
 ```
