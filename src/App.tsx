@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { syncManager, type SyncStatus } from './syncManager';
-import { Bookmark, AppSettings } from './types';
+import { Bookmark, AppSettings, BackgroundType, GlobalBackgroundType, Language } from './types';
 import { PRESET_ICONS, GRADIENTS, SEARCH_ENGINES, STORAGE_KEY, SETTINGS_KEY, getRandomGradient } from './constants';
 import {
   formatUrl,
@@ -12,8 +12,10 @@ import {
   validateUrl,
   validatePin,
   isValidImageUrl,
+  imageUrlToBase64,
 } from './utils';
 import { Header, SearchWidget, BookmarkCard } from './components';
+import { getTranslation } from './i18n';
 
 // --- ActionSheet Component ---
 const ActionSheet = ({
@@ -22,7 +24,8 @@ const ActionSheet = ({
   onEdit,
   onDelete,
   onAdd,
-  title
+  title,
+  language
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -30,6 +33,7 @@ const ActionSheet = ({
   onDelete: () => void;
   onAdd: () => void;
   title: string;
+  language: Language;
 }) => {
   if (!isOpen) return null;
 
@@ -39,41 +43,41 @@ const ActionSheet = ({
       <div className="relative bg-slate-800 rounded-t-3xl p-6 pb-10 shadow-2xl border-t border-slate-700/50 animate-in slide-in-from-bottom-full duration-300">
         <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 opacity-50" />
         <h3 className="text-center text-white font-bold text-lg mb-6 truncate px-4">
-          Actions for "{title}"
+          {getTranslation(language, 'actionsFor', { title })}
         </h3>
         <div className="space-y-3">
-          <button 
+          <button
             onClick={() => { onAdd(); onClose(); }}
             className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-3 transition-colors shadow-lg shadow-blue-500/20"
           >
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            Add New Shortcut
+            {getTranslation(language, 'addNewShortcut')}
           </button>
-          <button 
+          <button
             onClick={() => { onEdit(); onClose(); }}
             className="w-full bg-slate-700/50 hover:bg-slate-700 text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-3 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
             </svg>
-            Edit Shortcut
+            {getTranslation(language, 'editShortcut')}
           </button>
-          <button 
+          <button
             onClick={() => { onDelete(); onClose(); }}
             className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 font-semibold py-4 rounded-2xl flex items-center justify-center gap-3 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
             </svg>
-            Delete Shortcut
+            {getTranslation(language, 'deleteShortcut')}
           </button>
-          <button 
+          <button
             onClick={onClose}
             className="w-full bg-transparent text-slate-500 font-semibold py-4 rounded-2xl"
           >
-            Cancel
+            {getTranslation(language, 'cancel')}
           </button>
         </div>
       </div>
@@ -102,7 +106,7 @@ const EditModal = ({
   const [bgImage, setBgImage] = useState('');
   const [iconKey, setIconKey] = useState('home');
   const [colors, setColors] = useState(getRandomGradient());
-  
+
   // Settings Mode
   const [showSettings, setShowSettings] = useState(false);
 
@@ -144,6 +148,14 @@ const EditModal = ({
       }
     }
   };
+
+  // 当 bgType 为 icon 且 url 有效时，获取 favicon URL
+  const faviconUrl = useMemo(() => {
+    if (bgType === 'icon' && url && !showSettings) {
+      return getFaviconUrl(url);
+    }
+    return '';
+  }, [bgType, url, showSettings]);
 
   if (!isOpen) return null;
 
@@ -201,7 +213,7 @@ const EditModal = ({
         {/* Modal Header */}
         <div className="flex justify-between items-center mb-5">
            <h2 className="text-xl font-bold text-white tracking-tight">
-             {showSettings ? 'App Settings' : (initialData ? 'Edit Shortcut' : 'Add Shortcut')}
+             {showSettings ? getTranslation(appSettings.language, 'appSettings') : (initialData ? getTranslation(appSettings.language, 'editShortcutTitle') : getTranslation(appSettings.language, 'addShortcut'))}
            </h2>
            
            {/* Settings Toggle Button - Only show when adding new item or toggling */}
@@ -222,8 +234,8 @@ const EditModal = ({
              {/* Layout */}
              <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">Layout Density</label>
-                  <span className="text-xs text-blue-400 font-mono bg-blue-400/10 px-2 py-0.5 rounded">{appSettings.gridCols} Cols</span>
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">{getTranslation(appSettings.language, 'layoutDensity')}</label>
+                  <span className="text-xs text-blue-400 font-mono bg-blue-400/10 px-2 py-0.5 rounded">{appSettings.gridCols} {getTranslation(appSettings.language, 'cols')}</span>
                 </div>
                 <div className="flex items-center gap-3 bg-slate-900/50 p-4 rounded-xl">
                   <span className="text-xs text-slate-500 font-bold">2</span>
@@ -242,7 +254,7 @@ const EditModal = ({
 
              {/* Search Engine */}
              <div>
-               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">Search Engine</label>
+               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'searchEngine')}</label>
                <div className="grid grid-cols-2 gap-2">
                  {Object.entries(SEARCH_ENGINES).map(([key, engine]) => (
                    <button
@@ -263,7 +275,7 @@ const EditModal = ({
 
              {/* Global Background */}
              <div>
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">Global Background</label>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'globalBackground')}</label>
                 <div className="flex bg-slate-900/50 p-1 rounded-xl mb-4">
                     {(['default', 'gradient', 'image'] as GlobalBackgroundType[]).map(type => (
                         <button
@@ -272,11 +284,11 @@ const EditModal = ({
                             onClick={() => onUpdateAppSettings({ globalBgType: type })}
                             className={`flex-1 py-2 text-xs font-bold rounded-lg capitalize transition-all ${
                             appSettings.globalBgType === type
-                                ? 'bg-slate-700 text-white shadow-md' 
+                                ? 'bg-slate-700 text-white shadow-md'
                                 : 'text-slate-500 hover:text-slate-300'
                             }`}
                         >
-                            {type}
+                            {getTranslation(appSettings.language, type as keyof typeof import('./i18n').translations.en)}
                         </button>
                     ))}
                 </div>
@@ -284,12 +296,12 @@ const EditModal = ({
                 {appSettings.globalBgType === 'gradient' && (
                     <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${appSettings.globalBgGradient?.from || 'from-slate-800'} ${appSettings.globalBgGradient?.to || 'to-slate-900'} shadow-inner ring-1 ring-white/10`} />
-                        <button 
+                        <button
                             type="button"
                             onClick={() => onUpdateAppSettings({ globalBgGradient: getRandomGradient() })}
                             className="flex-1 py-3 bg-slate-700/50 hover:bg-slate-700 text-sm text-slate-300 rounded-xl border border-slate-600/50 transition-colors flex items-center justify-center gap-2"
                         >
-                            Shuffle Gradient
+                            {getTranslation(appSettings.language, 'shuffleGradient')}
                         </button>
                     </div>
                 )}
@@ -304,19 +316,149 @@ const EditModal = ({
                             className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                         />
                          <div className="relative">
-                            <input 
-                                type="file" 
-                                accept="image/*" 
+                            <input
+                                type="file"
+                                accept="image/*"
                                 onChange={handleFileUpload}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                             />
                             <div className="w-full bg-slate-900/50 border border-dashed border-slate-700 hover:border-blue-500 text-slate-400 rounded-xl px-4 py-3 text-sm text-center transition-colors">
-                                Choose Local Image
+                                {getTranslation(appSettings.language, 'chooseLocalImage')}
                             </div>
                         </div>
-                        <p className="text-[10px] text-slate-500 px-1">Note: Large images may affect performance.</p>
+                        <p className="text-[10px] text-slate-500 px-1">{getTranslation(appSettings.language, 'imageNote')}</p>
                      </div>
                 )}
+             </div>
+
+             {/* Mobile Dense Mode Config */}
+             <div>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'mobileDenseMode')}</label>
+                <div className="space-y-4 bg-slate-900/30 p-4 rounded-xl">
+                  {/* Icon Size */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'iconSize')}</label>
+                      <span className="text-xs text-blue-400 font-mono">{appSettings.mobileDenseConfig?.iconSize || 24}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="16"
+                      max="40"
+                      step="2"
+                      value={appSettings.mobileDenseConfig?.iconSize || 24}
+                      onChange={(e) => onUpdateAppSettings({
+                        mobileDenseConfig: {
+                          ...appSettings.mobileDenseConfig!,
+                          iconSize: Number(e.target.value)
+                        }
+                      })}
+                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                  </div>
+
+                  {/* Icon Margin Top */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'iconTopMargin')}</label>
+                      <span className="text-xs text-blue-400 font-mono">{appSettings.mobileDenseConfig?.iconMarginTop || 2}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="12"
+                      step="1"
+                      value={appSettings.mobileDenseConfig?.iconMarginTop || 2}
+                      onChange={(e) => onUpdateAppSettings({
+                        mobileDenseConfig: {
+                          ...appSettings.mobileDenseConfig!,
+                          iconMarginTop: Number(e.target.value)
+                        }
+                      })}
+                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                  </div>
+
+                  {/* Text Size */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'textSize')}</label>
+                      <span className="text-xs text-blue-400 font-mono">{appSettings.mobileDenseConfig?.textSize || 8}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="6"
+                      max="12"
+                      step="1"
+                      value={appSettings.mobileDenseConfig?.textSize || 8}
+                      onChange={(e) => onUpdateAppSettings({
+                        mobileDenseConfig: {
+                          ...appSettings.mobileDenseConfig!,
+                          textSize: Number(e.target.value)
+                        }
+                      })}
+                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                  </div>
+
+                  {/* Text Margin Top */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'textTopMargin')}</label>
+                      <span className="text-xs text-blue-400 font-mono">{appSettings.mobileDenseConfig?.textMarginTop || 6}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="16"
+                      step="1"
+                      value={appSettings.mobileDenseConfig?.textMarginTop || 6}
+                      onChange={(e) => onUpdateAppSettings({
+                        mobileDenseConfig: {
+                          ...appSettings.mobileDenseConfig!,
+                          textMarginTop: Number(e.target.value)
+                        }
+                      })}
+                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onUpdateAppSettings({
+                      mobileDenseConfig: {
+                        iconSize: 24,
+                        iconMarginTop: 2,
+                        textSize: 8,
+                        textMarginTop: 6
+                      }
+                    })}
+                    className="w-full py-2 bg-slate-700/50 hover:bg-slate-700 text-xs text-slate-300 rounded-lg transition-colors"
+                  >
+                    {getTranslation(appSettings.language, 'resetToDefault')}
+                  </button>
+                </div>
+             </div>
+
+             {/* Language Selection */}
+             <div>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'language')}</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['zh', 'en'] as Language[]).map(lang => (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => onUpdateAppSettings({ language: lang })}
+                      className={`px-3 py-3 rounded-xl text-sm font-medium transition-all border ${
+                        appSettings.language === lang
+                          ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
+                          : 'bg-slate-900/50 border-transparent text-slate-400 hover:bg-slate-700 hover:text-white'
+                      }`}
+                    >
+                      {lang === 'zh' ? '中文' : 'English'}
+                    </button>
+                  ))}
+                </div>
              </div>
 
              <div className="pt-2">
@@ -325,7 +467,7 @@ const EditModal = ({
                   onClick={onClose}
                   className="w-full px-4 py-3.5 rounded-xl bg-slate-700/50 text-slate-200 font-bold hover:bg-slate-700 transition-colors"
                 >
-                  Close Settings
+                  {getTranslation(appSettings.language, 'closeSettings')}
                 </button>
              </div>
           </div>
@@ -337,7 +479,7 @@ const EditModal = ({
                   <input
                   autoFocus
                   type="text"
-                  placeholder="Title (e.g. YouTube)"
+                  placeholder={getTranslation(appSettings.language, 'titlePlaceholder')}
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-500"
@@ -346,7 +488,7 @@ const EditModal = ({
               <div>
                   <input
                   type="text"
-                  placeholder="URL (e.g. youtube.com)"
+                  placeholder={getTranslation(appSettings.language, 'urlPlaceholder')}
                   value={url}
                   onChange={e => setUrl(e.target.value)}
                   className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-500"
@@ -362,19 +504,19 @@ const EditModal = ({
                     type="button"
                     onClick={() => setBgType(tab.id)}
                     className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                      bgType === tab.id 
-                        ? 'bg-slate-700 text-white shadow-md' 
+                      bgType === tab.id
+                        ? 'bg-slate-700 text-white shadow-md'
                         : 'text-slate-500 hover:text-slate-300'
                     }`}
                   >
-                    {tab.label}
+                    {getTranslation(appSettings.language, tab.id as keyof typeof import('./i18n').translations.en)}
                   </button>
                 ))}
               </div>
 
               {(bgType === 'gradient' || bgType === 'library') && (
                   <div className="flex items-center gap-4 mb-4">
-                      <div 
+                      <div
                           className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${colors.from} ${colors.to} flex items-center justify-center shadow-lg transition-all duration-300`}
                       >
                           {bgType === 'library' && (
@@ -388,7 +530,7 @@ const EditModal = ({
                               </span>
                           )}
                       </div>
-                      <button 
+                      <button
                           type="button"
                           onClick={refreshColors}
                           className="flex-1 py-2 bg-slate-700/50 hover:bg-slate-700 text-sm text-slate-300 rounded-xl border border-slate-600/50 transition-colors flex items-center justify-center gap-2"
@@ -396,7 +538,7 @@ const EditModal = ({
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                           </svg>
-                          Shuffle Color
+                          {getTranslation(appSettings.language, 'shuffleColor')}
                       </button>
                   </div>
               )}
@@ -432,25 +574,61 @@ const EditModal = ({
                     className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   />
                   <div className="relative mt-2">
-                        <input 
-                            type="file" 
-                            accept="image/*" 
+                        <input
+                            type="file"
+                            accept="image/*"
                             onChange={handleFileUpload}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
                         <div className="w-full bg-slate-900/50 border border-dashed border-slate-700 hover:border-blue-500 text-slate-400 rounded-xl px-4 py-3 text-sm text-center transition-colors">
-                            Choose Local Image
+                            {getTranslation(appSettings.language, 'chooseLocalImage')}
                         </div>
                   </div>
-                  <p className="text-xs text-slate-500 mt-2">Use URL for faster loading, or upload small images.</p>
+                  <p className="text-xs text-slate-500 mt-2">{getTranslation(appSettings.language, 'imageNote')}</p>
                 </div>
               )}
               {bgType === 'icon' && url && (
-                <div className="flex items-center gap-3 p-3 bg-slate-900/30 rounded-xl border border-slate-700/30 animate-in fade-in">
-                  <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center">
-                      <img src={getFaviconUrl(url)} className="w-6 h-6 object-contain" alt="Preview" onError={(e) => e.currentTarget.style.display = 'none'} />
+                <div className="space-y-3 animate-in fade-in">
+                  <div className="flex items-center gap-3 p-3 bg-slate-900/30 rounded-xl border border-slate-700/30">
+                    <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center">
+                        <img src={faviconUrl} className="w-6 h-6 object-contain" alt="Preview" onError={(e) => e.currentTarget.style.display = 'none'} />
+                    </div>
+                    <span className="text-sm text-slate-400">{getTranslation(appSettings.language, 'faviconPreview')}</span>
                   </div>
-                  <span className="text-sm text-slate-400">Favicon Preview</span>
+
+                  {/* Favicon URL 显示区域 */}
+                  {faviconUrl && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-400 font-medium">
+                          {appSettings.language === 'zh' ? 'Favicon URL（用于 Image 模式）:' : 'Favicon URL (for Image mode):'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(faviconUrl);
+                            alert(appSettings.language === 'zh' ? '已复制到剪贴板！' : 'Copied to clipboard!');
+                          }}
+                          className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-lg transition-colors flex items-center gap-1"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                          </svg>
+                          {appSettings.language === 'zh' ? '复制' : 'Copy'}
+                        </button>
+                      </div>
+                      <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                        <code className="text-[10px] text-slate-400 break-all font-mono leading-relaxed">
+                          {faviconUrl}
+                        </code>
+                      </div>
+                      <p className="text-[10px] text-slate-500 px-1">
+                        {appSettings.language === 'zh'
+                          ? '提示：复制此 URL，切换到 Image 模式粘贴即可使用。'
+                          : 'Tip: Copy this URL and paste it in Image mode to use.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -461,14 +639,14 @@ const EditModal = ({
                 onClick={onClose}
                 className="flex-1 px-4 py-3.5 rounded-xl bg-slate-700/50 text-slate-200 font-bold hover:bg-slate-700 transition-colors"
               >
-                Cancel
+                {getTranslation(appSettings.language, 'cancel')}
               </button>
               <button
                 type="submit"
                 disabled={!title || !url}
                 className="flex-1 px-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 active:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
               >
-                {initialData ? 'Update' : 'Save'}
+                {initialData ? getTranslation(appSettings.language, 'update') : getTranslation(appSettings.language, 'save')}
               </button>
             </div>
           </form>
@@ -805,7 +983,14 @@ const App = () => {
     gridCols: 4,
     searchEngine: 'google',
     globalBgType: 'default',
-    globalBgGradient: { from: 'from-slate-900', to: 'to-slate-800' }
+    globalBgGradient: { from: 'from-slate-900', to: 'to-slate-800' },
+    mobileDenseConfig: {
+      iconSize: 24,        // 图标大小 24px (w-6 h-6)
+      iconMarginTop: 2,    // 图标上边距 2px
+      textSize: 8,         // 文字大小 8px
+      textMarginTop: 6     // 文字上边距 6px (mt-1.5)
+    },
+    language: 'zh'         // 默认中文
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -1024,13 +1209,14 @@ const App = () => {
 
         <SearchWidget searchEngine={settings.searchEngine} />
 
-        <div className={`grid gap-4 ${gridColsClass} w-full animate-in fade-in slide-in-from-bottom-4 duration-700`}>
+        <div className={`grid gap-4 ${gridColsClass} w-full animate-in fade-in slide-in-from-bottom-4 duration-700`} style={{ gridAutoRows: '1fr' }}>
           {bookmarks.map(bookmark => (
             <BookmarkCard
               key={bookmark.id}
               item={bookmark}
               gridCols={settings.gridCols}
               onLongPress={handleLongPress}
+              mobileDenseConfig={settings.mobileDenseConfig}
             />
           ))}
         </div>
@@ -1043,6 +1229,7 @@ const App = () => {
         onDelete={handleDeleteBookmark}
         onAdd={handleAddNewBookmark}
         title={selectedBookmark?.title || ''}
+        language={settings.language}
       />
 
       <EditModal
