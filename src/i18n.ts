@@ -41,7 +41,7 @@ export interface Translations {
   globalBackground: string;
   default: string;
   gradient: string;
-  mobileDenseMode: string;
+  cardAppearance: string;
   iconSize: string;
   iconTopMargin: string;
   textSize: string;
@@ -112,7 +112,7 @@ export const translations: Record<Language, Translations> = {
     globalBackground: 'Global Background',
     default: 'Default',
     gradient: 'Gradient',
-    mobileDenseMode: 'Mobile Dense Mode (5-6 Cols)',
+    cardAppearance: 'Card Appearance',
     iconSize: 'Icon Size',
     iconTopMargin: 'Icon Top Margin',
     textSize: 'Text Size',
@@ -181,7 +181,7 @@ export const translations: Record<Language, Translations> = {
     globalBackground: '全局背景',
     default: '默认',
     gradient: '渐变',
-    mobileDenseMode: '移动端密集模式（5-6列）',
+    cardAppearance: '卡片外观',
     iconSize: '图标大小',
     iconTopMargin: '图标上边距',
     textSize: '文字大小',

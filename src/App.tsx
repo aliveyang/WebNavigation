@@ -332,25 +332,25 @@ const EditModal = ({
                 )}
              </div>
 
-             {/* Mobile Dense Mode Config */}
+             {/* Card Appearance Config */}
              <div>
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'mobileDenseMode')}</label>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'cardAppearance')}</label>
                 <div className="space-y-4 bg-slate-900/30 p-4 rounded-xl">
                   {/* Icon Size */}
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'iconSize')}</label>
-                      <span className="text-xs text-blue-400 font-mono">{appSettings.mobileDenseConfig?.iconSize || 24}px</span>
+                      <span className="text-xs text-blue-400 font-mono">{appSettings.cardAppearanceConfig?.iconSize || 24}px</span>
                     </div>
                     <input
                       type="range"
                       min="16"
                       max="40"
                       step="2"
-                      value={appSettings.mobileDenseConfig?.iconSize || 24}
+                      value={appSettings.cardAppearanceConfig?.iconSize || 24}
                       onChange={(e) => onUpdateAppSettings({
-                        mobileDenseConfig: {
-                          ...appSettings.mobileDenseConfig!,
+                        cardAppearanceConfig: {
+                          ...appSettings.cardAppearanceConfig!,
                           iconSize: Number(e.target.value)
                         }
                       })}
@@ -362,17 +362,17 @@ const EditModal = ({
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'iconTopMargin')}</label>
-                      <span className="text-xs text-blue-400 font-mono">{appSettings.mobileDenseConfig?.iconMarginTop || 2}px</span>
+                      <span className="text-xs text-blue-400 font-mono">{appSettings.cardAppearanceConfig?.iconMarginTop || 2}px</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="12"
                       step="1"
-                      value={appSettings.mobileDenseConfig?.iconMarginTop || 2}
+                      value={appSettings.cardAppearanceConfig?.iconMarginTop || 2}
                       onChange={(e) => onUpdateAppSettings({
-                        mobileDenseConfig: {
-                          ...appSettings.mobileDenseConfig!,
+                        cardAppearanceConfig: {
+                          ...appSettings.cardAppearanceConfig!,
                           iconMarginTop: Number(e.target.value)
                         }
                       })}
@@ -384,17 +384,17 @@ const EditModal = ({
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'textSize')}</label>
-                      <span className="text-xs text-blue-400 font-mono">{appSettings.mobileDenseConfig?.textSize || 8}px</span>
+                      <span className="text-xs text-blue-400 font-mono">{appSettings.cardAppearanceConfig?.textSize || 8}px</span>
                     </div>
                     <input
                       type="range"
                       min="6"
                       max="12"
                       step="1"
-                      value={appSettings.mobileDenseConfig?.textSize || 8}
+                      value={appSettings.cardAppearanceConfig?.textSize || 8}
                       onChange={(e) => onUpdateAppSettings({
-                        mobileDenseConfig: {
-                          ...appSettings.mobileDenseConfig!,
+                        cardAppearanceConfig: {
+                          ...appSettings.cardAppearanceConfig!,
                           textSize: Number(e.target.value)
                         }
                       })}
@@ -406,17 +406,17 @@ const EditModal = ({
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'textTopMargin')}</label>
-                      <span className="text-xs text-blue-400 font-mono">{appSettings.mobileDenseConfig?.textMarginTop || 6}px</span>
+                      <span className="text-xs text-blue-400 font-mono">{appSettings.cardAppearanceConfig?.textMarginTop || 6}px</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="16"
                       step="1"
-                      value={appSettings.mobileDenseConfig?.textMarginTop || 6}
+                      value={appSettings.cardAppearanceConfig?.textMarginTop || 6}
                       onChange={(e) => onUpdateAppSettings({
-                        mobileDenseConfig: {
-                          ...appSettings.mobileDenseConfig!,
+                        cardAppearanceConfig: {
+                          ...appSettings.cardAppearanceConfig!,
                           textMarginTop: Number(e.target.value)
                         }
                       })}
@@ -427,7 +427,7 @@ const EditModal = ({
                   <button
                     type="button"
                     onClick={() => onUpdateAppSettings({
-                      mobileDenseConfig: {
+                      cardAppearanceConfig: {
                         iconSize: 24,
                         iconMarginTop: 2,
                         textSize: 8,
@@ -985,7 +985,7 @@ const App = () => {
     searchEngine: 'google',
     globalBgType: 'default',
     globalBgGradient: { from: 'from-slate-900', to: 'to-slate-800' },
-    mobileDenseConfig: {
+    cardAppearanceConfig: {
       iconSize: 24,        // 图标大小 24px (w-6 h-6)
       iconMarginTop: 2,    // 图标上边距 2px
       textSize: 8,         // 文字大小 8px
@@ -1219,7 +1219,7 @@ const App = () => {
               item={bookmark}
               gridCols={settings.gridCols}
               onLongPress={handleLongPress}
-              mobileDenseConfig={settings.mobileDenseConfig}
+              cardAppearanceConfig={settings.cardAppearanceConfig}
             />
           ))}
         </div>

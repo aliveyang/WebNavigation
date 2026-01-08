@@ -13,7 +13,7 @@ export interface Bookmark {
   iconKey?: string;
 }
 
-export interface MobileDenseConfig {
+export interface CardAppearanceConfig {
   iconSize: number;      // 图标大小 (px)
   iconMarginTop: number; // 图标上边距 (px)
   textSize: number;      // 文字大小 (px)
@@ -26,6 +26,6 @@ export interface AppSettings {
   globalBgType: GlobalBackgroundType;
   globalBgImage?: string;
   globalBgGradient?: { from: string; to: string };
-  mobileDenseConfig?: MobileDenseConfig;
+  cardAppearanceConfig?: CardAppearanceConfig;
   language: Language;
 }

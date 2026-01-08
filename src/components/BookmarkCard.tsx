@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { Bookmark, MobileDenseConfig } from '../types';
+import { Bookmark, CardAppearanceConfig } from '../types';
 import { PRESET_ICONS } from '../constants';
 import { getFaviconUrl } from '../utils';
 
@@ -7,10 +7,10 @@ interface BookmarkCardProps {
   item: Bookmark;
   gridCols: number;
   onLongPress: (item: Bookmark) => void;
-  mobileDenseConfig?: MobileDenseConfig;
+  cardAppearanceConfig?: CardAppearanceConfig;
 }
 
-const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, onLongPress, mobileDenseConfig }) => {
+const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, onLongPress, cardAppearanceConfig }) => {
   const [isPressing, setIsPressing] = useState(false);
   const pressTimer = useRef<number | null>(null);
   const isLongPressTriggered = useRef(false);
@@ -42,7 +42,6 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
   }, []);
 
   // 使用 useMemo 缓存计算结果
-  const isDense = useMemo(() => gridCols > 4, [gridCols]);
   const bgType = useMemo(() => item.bgType || 'gradient', [item.bgType]);
   const isLibrary = useMemo(() => bgType === 'library', [bgType]);
 
@@ -84,13 +83,13 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
 
   const faviconUrl = useMemo(() => getFaviconUrl(item.url), [item.url]);
 
-  // 获取移动端密集模式配置（带默认值）
-  const denseConfig = useMemo(() => ({
-    iconSize: mobileDenseConfig?.iconSize || 24,
-    iconMarginTop: mobileDenseConfig?.iconMarginTop || 2,
-    textSize: mobileDenseConfig?.textSize || 8,
-    textMarginTop: mobileDenseConfig?.textMarginTop || 6
-  }), [mobileDenseConfig]);
+  // 获取卡片外观配置（带默认值）
+  const appearanceConfig = useMemo(() => ({
+    iconSize: cardAppearanceConfig?.iconSize || 24,
+    iconMarginTop: cardAppearanceConfig?.iconMarginTop || 2,
+    textSize: cardAppearanceConfig?.textSize || 8,
+    textMarginTop: cardAppearanceConfig?.textMarginTop || 6
+  }), [cardAppearanceConfig]);
 
   return (
     <div
@@ -136,15 +135,15 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
         {/* 移动端布局：图标在上，名称在下 */}
         {isMobile ? (
           <div
-            className={`relative z-10 flex flex-col items-center w-full h-full pointer-events-none ${isDense ? 'py-0.5 pb-1' : 'py-2'}`}
-            style={isDense ? { paddingTop: `${denseConfig.iconMarginTop}px` } : undefined}
+            className="relative z-10 flex flex-col items-center w-full h-full pointer-events-none py-0.5 pb-1"
+            style={{ paddingTop: `${appearanceConfig.iconMarginTop}px` }}
           >
             {/* 图标区域 - 占据上半部分 */}
-            <div className={`flex items-center justify-center min-h-0 ${isDense ? 'flex-shrink' : 'flex-1'}`}>
+            <div className="flex items-center justify-center min-h-0 flex-shrink">
               {isLibrary && item.iconKey && PRESET_ICONS[item.iconKey] ? (
                 <div
                   className="text-white drop-shadow-md"
-                  style={isDense ? { width: `${denseConfig.iconSize}px`, height: `${denseConfig.iconSize}px` } : { width: '40px', height: '40px' }}
+                  style={{ width: `${appearanceConfig.iconSize}px`, height: `${appearanceConfig.iconSize}px` }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
                     <path d={PRESET_ICONS[item.iconKey]} />
@@ -153,7 +152,7 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
               ) : bgType === 'icon' ? (
                 <div
                   className="flex items-center justify-center"
-                  style={isDense ? { width: `${denseConfig.iconSize}px`, height: `${denseConfig.iconSize}px` } : { width: '40px', height: '40px' }}
+                  style={{ width: `${appearanceConfig.iconSize}px`, height: `${appearanceConfig.iconSize}px` }}
                 >
                   <img
                     src={faviconUrl}
@@ -167,7 +166,7 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
               ) : !item.bgImage && (
                 <span
                   className="font-bold text-white drop-shadow-md"
-                  style={isDense ? { fontSize: `${denseConfig.iconSize * 0.75}px` } : { fontSize: '24px' }}
+                  style={{ fontSize: `${appearanceConfig.iconSize * 0.75}px` }}
                 >
                   {item.title.charAt(0).toUpperCase()}
                 </span>
@@ -176,16 +175,13 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
 
             {/* 名称区域 - 固定在底部 */}
             <div
-              className={`w-full overflow-hidden flex-shrink-0 ${isDense ? 'px-0.5' : 'px-1'}`}
-              style={isDense ? { marginTop: `${denseConfig.textMarginTop}px` } : undefined}
+              className="w-full overflow-hidden flex-shrink-0 px-0.5"
+              style={{ marginTop: `${appearanceConfig.textMarginTop}px` }}
             >
               <h3
                 className="font-medium text-white leading-tight truncate"
-                style={isDense ? {
-                  fontSize: `${denseConfig.textSize}px`,
-                  textShadow: '0 1px 2px rgba(0,0,0,0.5)'
-                } : {
-                  fontSize: '10px',
+                style={{
+                  fontSize: `${appearanceConfig.textSize}px`,
                   textShadow: '0 1px 2px rgba(0,0,0,0.5)'
                 }}
               >
@@ -197,15 +193,21 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
           /* PC端布局：图标和名称居中 */
           <div className="relative z-10 flex flex-col items-center justify-center w-full h-full pointer-events-none">
             {/* 图标区域 */}
-            <div className={`flex items-center justify-center ${isDense ? 'mb-1' : 'mb-2'}`}>
+            <div className="flex items-center justify-center mb-1">
               {isLibrary && item.iconKey && PRESET_ICONS[item.iconKey] ? (
-                <div className={`${isDense ? 'w-10 h-10' : 'w-12 h-12'} text-white drop-shadow-md`}>
+                <div
+                  className="text-white drop-shadow-md"
+                  style={{ width: `${appearanceConfig.iconSize}px`, height: `${appearanceConfig.iconSize}px` }}
+                >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
                     <path d={PRESET_ICONS[item.iconKey]} />
                   </svg>
                 </div>
               ) : bgType === 'icon' ? (
-                <div className={`flex items-center justify-center ${isDense ? 'w-12 h-12' : 'w-14 h-14'}`}>
+                <div
+                  className="flex items-center justify-center"
+                  style={{ width: `${appearanceConfig.iconSize}px`, height: `${appearanceConfig.iconSize}px` }}
+                >
                   <img
                     src={faviconUrl}
                     alt="icon"
@@ -216,7 +218,10 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
                   />
                 </div>
               ) : !item.bgImage && (
-                <span className={`font-bold text-white drop-shadow-md ${isDense ? 'text-3xl' : 'text-4xl'}`}>
+                <span
+                  className="font-bold text-white drop-shadow-md"
+                  style={{ fontSize: `${appearanceConfig.iconSize * 0.75}px` }}
+                >
                   {item.title.charAt(0).toUpperCase()}
                 </span>
               )}
@@ -224,7 +229,13 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
 
             {/* 名称区域 */}
             <div className="w-full overflow-hidden px-2">
-              <h3 className={`font-medium text-white leading-tight truncate ${isDense ? 'text-[11px]' : 'text-xs tracking-wide'}`} style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+              <h3
+                className="font-medium text-white leading-tight truncate"
+                style={{
+                  fontSize: `${appearanceConfig.textSize}px`,
+                  textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+                }}
+              >
                 {item.title}
               </h3>
             </div>
