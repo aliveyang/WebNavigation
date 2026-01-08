@@ -14,6 +14,7 @@ import {
   isValidImageUrl,
   imageUrlToBase64,
 } from './utils';
+import { debouncedSaveToStorage, saveToStorage, loadFromStorage } from './utils/storage';
 import { Header, SearchWidget, BookmarkCard } from './components';
 import { getTranslation } from './i18n';
 
@@ -1061,7 +1062,8 @@ const App = () => {
 
   // Save to local storage and sync to cloud
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
+    // 使用防抖保存减少 I/O 操作
+    debouncedSaveToStorage(STORAGE_KEY, bookmarks);
 
     // 如果启用了同步且不在同步过程中，推送到云端（防抖）
     if (syncManager.getStatus().enabled && bookmarks.length > 0 && !isSyncing.current) {
@@ -1070,7 +1072,8 @@ const App = () => {
   }, [bookmarks, settings]); // 依赖 settings，这样只触发一次
 
   useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    // 使用防抖保存减少 I/O 操作
+    debouncedSaveToStorage(SETTINGS_KEY, settings);
     // 不在这里推送，由上面的 useEffect 统一处理
   }, [settings]);
 

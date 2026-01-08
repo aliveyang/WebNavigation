@@ -83,6 +83,37 @@ export default defineConfig(({ mode }) => {
                 options: {
                   cacheName: 'favicon-cache',
                   expiration: {
+                    maxEntries: 200, // 增加到 200 个
+                    maxAgeSeconds: 60 * 60 * 24 * 90 // 延长到 90 天
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200]
+                  }
+                }
+              },
+              {
+                // 缓存 Vercel KV API 响应
+                urlPattern: /^https:\/\/.*\.vercel-storage\.com\/.*/i,
+                handler: 'NetworkFirst',
+                options: {
+                  cacheName: 'sync-api-cache',
+                  expiration: {
+                    maxEntries: 20,
+                    maxAgeSeconds: 60 * 5 // 5 minutes
+                  },
+                  networkTimeoutSeconds: 3,
+                  cacheableResponse: {
+                    statuses: [0, 200]
+                  }
+                }
+              },
+              {
+                // 缓存外部图片资源
+                urlPattern: /^https?:\/\/.*\.(jpg|jpeg|png|gif|webp|svg)$/i,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'external-images-cache',
+                  expiration: {
                     maxEntries: 100,
                     maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
                   },

@@ -1,3 +1,5 @@
+import { faviconCache } from './faviconCache';
+
 export const formatUrl = (url: string) => {
   const trimmed = url.trim();
   if (!trimmed.includes('://')) {
@@ -9,7 +11,18 @@ export const formatUrl = (url: string) => {
 export const getFaviconUrl = (url: string) => {
   try {
     const domain = new URL(formatUrl(url)).hostname;
-    return `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
+
+    // 先检查缓存
+    const cached = faviconCache.get(domain);
+    if (cached) {
+      return cached;
+    }
+
+    // 生成新的 URL 并缓存
+    const faviconUrl = `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
+    faviconCache.set(domain, faviconUrl);
+
+    return faviconUrl;
   } catch (e) {
     return '';
   }
@@ -59,6 +72,12 @@ export const imageUrlToBase64 = async (url: string): Promise<string> => {
 
 // Export performance utilities
 export { debounce, throttle, rafThrottle } from './performance';
+
+// Export storage utilities
+export { debouncedSaveToStorage, saveToStorage, loadFromStorage, storageBatcher, getStorageStats } from './storage';
+
+// Export favicon cache
+export { faviconCache } from './faviconCache';
 
 // Export image optimization utilities
 export {
