@@ -663,11 +663,13 @@ const SyncModal = ({
   onClose,
   onSyncComplete,
   isSyncingRef,
+  language,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSyncComplete: (bookmarks: Bookmark[], settings: AppSettings) => void;
   isSyncingRef: React.MutableRefObject<boolean>;
+  language: Language;
 }) => {
   const [pin, setPin] = useState('');
   const [isEnabling, setIsEnabling] = useState(false);
@@ -850,7 +852,7 @@ const SyncModal = ({
         {/* Modal Header */}
         <div className="flex justify-between items-center mb-5">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white tracking-tight">Cloud Sync</h2>
+            <h2 className="text-xl font-bold text-white tracking-tight">{getTranslation(language, 'cloudSync')}</h2>
             <span className="text-xs text-slate-500 font-mono bg-slate-900/50 px-2 py-0.5 rounded">v1.1.0</span>
           </div>
           <button
@@ -870,11 +872,11 @@ const SyncModal = ({
               <div className={`w-3 h-3 rounded-full ${syncStatus.enabled ? 'bg-green-500' : 'bg-slate-600'}`} />
               <div className="flex-1">
                 <p className="text-sm font-bold text-white">
-                  {syncStatus.enabled ? 'Sync Enabled' : 'Sync Disabled'}
+                  {syncStatus.enabled ? getTranslation(language, 'syncEnabled') : getTranslation(language, 'syncDisabled')}
                 </p>
                 {syncStatus.lastSyncTime && (
                   <p className="text-xs text-slate-400 mt-1">
-                    Last sync: {new Date(syncStatus.lastSyncTime).toLocaleString()}
+                    {getTranslation(language, 'lastSync')}: {new Date(syncStatus.lastSyncTime).toLocaleString()}
                   </p>
                 )}
               </div>
@@ -886,12 +888,12 @@ const SyncModal = ({
             <>
               <div className="space-y-3">
                 <p className="text-sm text-slate-300">
-                  Enter a PIN code (4+ characters) to enable multi-device sync. Use the same PIN on other devices to sync your bookmarks.
+                  {getTranslation(language, 'enterPin')}
                 </p>
 
                 <input
                   type="text"
-                  placeholder="Enter PIN code (e.g., 1234)"
+                  placeholder={getTranslation(language, 'pinPlaceholder')}
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-500"
@@ -909,13 +911,13 @@ const SyncModal = ({
                   disabled={isEnabling || pin.length < 4}
                   className="w-full px-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors shadow-lg shadow-blue-500/20"
                 >
-                  {isEnabling ? 'Enabling...' : 'Enable Sync'}
+                  {isEnabling ? getTranslation(language, 'enabling') : getTranslation(language, 'enableSync')}
                 </button>
               </div>
 
               <div className="pt-2 border-t border-slate-700/50">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  <strong>Note:</strong> Your PIN code is used to identify your sync account. Keep it secure and don't share it with others.
+                  {getTranslation(language, 'pinNote')}
                 </p>
               </div>
             </>
@@ -933,14 +935,14 @@ const SyncModal = ({
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 animate-spin">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                       </svg>
-                      Syncing...
+                      {getTranslation(language, 'syncing')}
                     </>
                   ) : (
                     <>
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                       </svg>
-                      Sync Now
+                      {getTranslation(language, 'syncNow')}
                     </>
                   )}
                 </button>
@@ -961,13 +963,13 @@ const SyncModal = ({
                   onClick={handleDisableSync}
                   className="w-full px-4 py-3.5 rounded-xl bg-red-500/10 text-red-400 font-bold hover:bg-red-500/20 transition-colors"
                 >
-                  Disable Sync
+                  {getTranslation(language, 'disableSync')}
                 </button>
               </div>
 
               <div className="pt-2 border-t border-slate-700/50">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Your bookmarks are automatically synced when you make changes. Use "Sync Now" to force an immediate sync.
+                  {getTranslation(language, 'syncNote')}
                 </p>
               </div>
             </>
@@ -1249,6 +1251,7 @@ const App = () => {
         onClose={handleCloseSyncModal}
         onSyncComplete={handleSyncComplete}
         isSyncingRef={isSyncing}
+        language={settings.language}
       />
     </div>
   );
