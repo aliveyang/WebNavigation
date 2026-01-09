@@ -89,7 +89,7 @@ export const translations: Record<Language, Translations> = {
     addShortcut: 'Add Shortcut',
     editShortcutTitle: 'Edit Shortcut',
     titlePlaceholder: 'Title (e.g. YouTube)',
-    urlPlaceholder: 'URL (e.g. youtube.com)',
+    urlPlaceholder: 'URL or App (e.g. youtube.com, spotify:)',
     save: 'Save',
     update: 'Update',
 
@@ -158,7 +158,7 @@ export const translations: Record<Language, Translations> = {
     addShortcut: '添加快捷方式',
     editShortcutTitle: '编辑快捷方式',
     titlePlaceholder: '标题（例如：YouTube）',
-    urlPlaceholder: '网址（例如：youtube.com）',
+    urlPlaceholder: '网址或应用（例如：youtube.com、spotify:）',
     save: '保存',
     update: '更新',
 
