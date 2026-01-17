@@ -37,9 +37,9 @@ export const BookmarkList: React.FC<BookmarkListProps> = ({
     const [activeId, setActiveId] = useState<string | null>(null);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, {
+        useSensor(MouseSensor, {
             activationConstraint: {
-                distance: 8, // PC: 移动 8px 后开始拖拽，防止误触点击
+                distance: 10, // PC (鼠标): 移动 10px 后开始拖拽
             },
         }),
         useSensor(TouchSensor, {
