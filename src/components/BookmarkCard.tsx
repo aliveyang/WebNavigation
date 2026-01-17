@@ -24,7 +24,7 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
       setIsPressing(false);
       if (navigator.vibrate) navigator.vibrate(50);
       onLongPress(item);
-    }, 1000);
+    }, 2000);
   }, [item, onLongPress]);
 
   const cancelPress = useCallback(() => {

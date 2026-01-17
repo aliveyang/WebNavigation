@@ -44,7 +44,7 @@ export const BookmarkList: React.FC<BookmarkListProps> = ({
         }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 250, // 移动端: 按住 250ms 后开始拖拽
+                delay: 1000, // 移动端: 按住 1000ms 后开始拖拽
                 tolerance: 5, // 容忍 5px 的移动
             }
         }),
