@@ -114,3 +114,11 @@ export {
   syncRateLimiter,
   apiRateLimiter,
 } from './rateLimit';
+
+// Export LRU cache
+export {
+  LRUCache,
+  LRUCacheWithTTL,
+  imageCache,
+  apiCache,
+} from './lruCache';

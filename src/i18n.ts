@@ -68,6 +68,8 @@ export interface Translations {
 
   // Common
   close: string;
+  edit: string;
+  delete: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -139,6 +141,8 @@ export const translations: Record<Language, Translations> = {
 
     // Common
     close: 'Close',
+    edit: 'Edit',
+    delete: 'Delete',
   },
   zh: {
     // Header
@@ -208,6 +212,8 @@ export const translations: Record<Language, Translations> = {
 
     // Common
     close: '关闭',
+    edit: '编辑',
+    delete: '删除',
   }
 };
 

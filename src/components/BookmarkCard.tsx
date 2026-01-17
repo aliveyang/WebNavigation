@@ -8,9 +8,10 @@ interface BookmarkCardProps {
   gridCols: number;
   onLongPress: (item: Bookmark) => void;
   cardAppearanceConfig?: CardAppearanceConfig;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, onLongPress, cardAppearanceConfig }) => {
+const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, onLongPress, cardAppearanceConfig, onContextMenu }) => {
   const [isPressing, setIsPressing] = useState(false);
   const pressTimer = useRef<number | null>(null);
   const isLongPressTriggered = useRef(false);
@@ -18,12 +19,12 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
   const startPress = useCallback(() => {
     isLongPressTriggered.current = false;
     setIsPressing(true);
-    pressTimer.current = setTimeout(() => {
+    pressTimer.current = window.setTimeout(() => {
       isLongPressTriggered.current = true;
       setIsPressing(false);
       if (navigator.vibrate) navigator.vibrate(50);
       onLongPress(item);
-    }, 1500);
+    }, 800);
   }, [item, onLongPress]);
 
   const cancelPress = useCallback(() => {
@@ -100,7 +101,7 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
       onTouchStart={startPress}
       onTouchEnd={cancelPress}
       onTouchMove={cancelPress}
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={onContextMenu || ((e) => e.preventDefault())}
     >
       <a
         href={item.url}
@@ -258,6 +259,10 @@ export const BookmarkCard = React.memo(BookmarkCardComponent, (prevProps, nextPr
     prevProps.item.iconKey === nextProps.item.iconKey &&
     prevProps.item.colorFrom === nextProps.item.colorFrom &&
     prevProps.item.colorTo === nextProps.item.colorTo &&
-    prevProps.gridCols === nextProps.gridCols
+    prevProps.gridCols === nextProps.gridCols &&
+    prevProps.cardAppearanceConfig?.iconSize === nextProps.cardAppearanceConfig?.iconSize &&
+    prevProps.cardAppearanceConfig?.iconMarginTop === nextProps.cardAppearanceConfig?.iconMarginTop &&
+    prevProps.cardAppearanceConfig?.textSize === nextProps.cardAppearanceConfig?.textSize &&
+    prevProps.cardAppearanceConfig?.textMarginTop === nextProps.cardAppearanceConfig?.textMarginTop
   );
 });

@@ -54,7 +54,7 @@ class SyncManager {
   // 生成设备 ID
   private generateDeviceId(): string {
     return 'device_' + Math.random().toString(36).substring(2, 15) +
-           Math.random().toString(36).substring(2, 15);
+      Math.random().toString(36).substring(2, 15);
   }
 
   // 启用同步
@@ -120,7 +120,10 @@ class SyncManager {
       const response = await fetch(`/api/sync/get?pin=${encodeURIComponent(this.pinHash)}`);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status === 404) {
+          throw new Error('API not found. If running locally, please use "vercel dev" or configure API proxy.');
+        }
+        throw new Error(`Cloud Sync failed (Status: ${response.status})`);
       }
 
       const data = await response.json();
@@ -130,7 +133,7 @@ class SyncManager {
       this.notifyListeners();
 
       // 如果从云端拉取到数据，更新本地的 lastModified
-      if (data.lastModified) {
+      if (data && data.lastModified) {
         localStorage.setItem('navhub_last_modified', data.lastModified.toString());
       }
 
@@ -139,6 +142,7 @@ class SyncManager {
       this.syncStatus.syncing = false;
       this.syncStatus.error = error instanceof Error ? error.message : 'Sync failed';
       this.notifyListeners();
+      // Don't verify re-throw, UI should handle error state via listeners or returned error
       throw error;
     }
   }
@@ -173,7 +177,10 @@ class SyncManager {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status === 404) {
+          throw new Error('API not found. If running locally, use "vercel dev".');
+        }
+        throw new Error(`Cloud Sync failed (Status: ${response.status})`);
       }
 
       const result = await response.json();
@@ -194,7 +201,7 @@ class SyncManager {
 
   // 双向同步
   async sync(localBookmarks: any[], localSettings: any, isFirstSync: boolean = false): Promise<{ bookmarks: any[], settings: any }> {
-    if (!this.pin) {
+    if (!this.pinHash) {
       throw new Error('Sync not enabled');
     }
 

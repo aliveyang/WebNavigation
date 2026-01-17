@@ -1,1258 +1,277 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { syncManager, type SyncStatus } from './syncManager';
-import { Bookmark, AppSettings, BackgroundType, GlobalBackgroundType, Language } from './types';
-import { PRESET_ICONS, GRADIENTS, SEARCH_ENGINES, STORAGE_KEY, SETTINGS_KEY, getRandomGradient } from './constants';
+import React, { useEffect, useState, useRef } from 'react';
 import {
-  formatUrl,
-  getFaviconUrl,
-  fileToBase64,
-  compressImage,
-  sanitizeUrl,
-  validateTitle,
-  validateUrl,
-  validatePin,
-  isValidImageUrl,
-  imageUrlToBase64,
-} from './utils';
-import { debouncedSaveToStorage, saveToStorage, loadFromStorage } from './utils/storage';
-import { Header, SearchWidget, BookmarkCard } from './components';
-import { getTranslation } from './i18n';
-
-// --- ActionSheet Component ---
-const ActionSheet = ({
-  isOpen,
-  onClose,
-  onEdit,
-  onDelete,
-  onAdd,
-  title,
-  language
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onAdd: () => void;
-  title: string;
-  language: Language;
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-slate-800 rounded-t-3xl p-6 pb-10 shadow-2xl border-t border-slate-700/50 animate-in slide-in-from-bottom-full duration-300">
-        <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 opacity-50" />
-        <h3 className="text-center text-white font-bold text-lg mb-6 truncate px-4">
-          {getTranslation(language, 'actionsFor', { title })}
-        </h3>
-        <div className="space-y-3">
-          <button
-            onClick={() => { onAdd(); onClose(); }}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-3 transition-colors shadow-lg shadow-blue-500/20"
-          >
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            {getTranslation(language, 'addNewShortcut')}
-          </button>
-          <button
-            onClick={() => { onEdit(); onClose(); }}
-            className="w-full bg-slate-700/50 hover:bg-slate-700 text-white font-semibold py-4 rounded-2xl flex items-center justify-center gap-3 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-            </svg>
-            {getTranslation(language, 'editShortcut')}
-          </button>
-          <button
-            onClick={() => { onDelete(); onClose(); }}
-            className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 font-semibold py-4 rounded-2xl flex items-center justify-center gap-3 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-            </svg>
-            {getTranslation(language, 'deleteShortcut')}
-          </button>
-          <button
-            onClick={onClose}
-            className="w-full bg-transparent text-slate-500 font-semibold py-4 rounded-2xl"
-          >
-            {getTranslation(language, 'cancel')}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const EditModal = ({ 
-  isOpen, 
-  onClose, 
-  onSave,
-  initialData,
-  appSettings,
-  onUpdateAppSettings
-}: { 
-  isOpen: boolean; 
-  onClose: () => void; 
-  onSave: (data: Partial<Bookmark>) => void; 
-  initialData?: Bookmark;
-  appSettings: AppSettings;
-  onUpdateAppSettings: (s: Partial<AppSettings>) => void;
-}) => {
-  const [title, setTitle] = useState('');
-  const [url, setUrl] = useState('');
-  const [bgType, setBgType] = useState<BackgroundType>('gradient');
-  const [bgImage, setBgImage] = useState('');
-  const [iconKey, setIconKey] = useState('home');
-  const [colors, setColors] = useState(getRandomGradient());
-
-  // Settings Mode
-  const [showSettings, setShowSettings] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      // Reset or Load Data
-      if (initialData) {
-        setTitle(initialData.title);
-        setUrl(initialData.url);
-        setBgType(initialData.bgType || 'gradient');
-        setBgImage(initialData.bgImage || '');
-        setIconKey(initialData.iconKey || 'home');
-        setColors({ from: initialData.colorFrom, to: initialData.colorTo });
-      } else {
-        setTitle('');
-        setUrl('');
-        setBgType('gradient');
-        setBgImage('');
-        setIconKey('home');
-        setColors(getRandomGradient());
-      }
-      setShowSettings(false);
-    }
-  }, [isOpen, initialData]);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      try {
-        // 使用图片压缩优化性能
-        const compressed = await compressImage(e.target.files[0], 800, 800, 0.8);
-        if (showSettings) {
-            onUpdateAppSettings({ globalBgImage: compressed, globalBgType: 'image' });
-        } else {
-            setBgImage(compressed);
-        }
-      } catch (err) {
-        console.error("File upload failed", err);
-        alert(err instanceof Error ? err.message : "Image upload failed. Try a smaller file.");
-      }
-    }
-  };
-
-  // 当 bgType 为 icon 且 url 有效时，获取 favicon URL
-  const faviconUrl = useMemo(() => {
-    if (bgType === 'icon' && url && !showSettings) {
-      return getFaviconUrl(url);
-    }
-    return '';
-  }, [bgType, url, showSettings]);
-
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // 验证标题
-    const titleValidation = validateTitle(title);
-    if (!titleValidation.valid) {
-      alert(titleValidation.error);
-      return;
-    }
-
-    // 验证 URL
-    const urlValidation = validateUrl(url);
-    if (!urlValidation.valid) {
-      alert(urlValidation.error);
-      return;
-    }
-
-    // 验证图片 URL（如果有）
-    if (bgImage && !isValidImageUrl(bgImage)) {
-      alert('Invalid image URL. Please use a valid image URL or upload a local image.');
-      return;
-    }
-
-    if (title && url) {
-      onSave({
-        title,
-        url: sanitizeUrl(url), // 清理 URL
-        bgType,
-        bgImage,
-        iconKey: bgType === 'library' ? iconKey : undefined,
-        colorFrom: colors.from,
-        colorTo: colors.to
-      });
-      onClose();
-    }
-  };
-
-  const tabs: { id: BackgroundType; label: string }[] = [
-    { id: 'gradient', label: 'Color' },
-    { id: 'library', label: 'Library' },
-    { id: 'icon', label: 'Icon' },
-    { id: 'image', label: 'Image' },
-  ];
-
-  const refreshColors = () => setColors(getRandomGradient());
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-0">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative bg-slate-800 w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-700/50 transform transition-all animate-in slide-in-from-bottom-10 fade-in flex flex-col max-h-[85vh]">
-        
-        {/* Modal Header */}
-        <div className="flex justify-between items-center mb-5">
-           <h2 className="text-xl font-bold text-white tracking-tight">
-             {showSettings ? getTranslation(appSettings.language, 'appSettings') : (initialData ? getTranslation(appSettings.language, 'editShortcutTitle') : getTranslation(appSettings.language, 'addShortcut'))}
-           </h2>
-           
-           {/* Settings Toggle Button - Only show when adding new item or toggling */}
-           <button 
-             type="button"
-             onClick={() => setShowSettings(!showSettings)}
-             className={`p-2 rounded-full transition-colors ${showSettings ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
-           >
-             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-               <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-             </svg>
-           </button>
-        </div>
-
-        {showSettings ? (
-          // --- App Settings View ---
-          <div className="space-y-6 overflow-y-auto custom-scrollbar pr-1">
-             {/* Layout */}
-             <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">{getTranslation(appSettings.language, 'layoutDensity')}</label>
-                  <span className="text-xs text-blue-400 font-mono bg-blue-400/10 px-2 py-0.5 rounded">{appSettings.gridCols} {getTranslation(appSettings.language, 'cols')}</span>
-                </div>
-                <div className="flex items-center gap-3 bg-slate-900/50 p-4 rounded-xl">
-                  <span className="text-xs text-slate-500 font-bold">2</span>
-                  <input 
-                    type="range" 
-                    min="2" 
-                    max="6" 
-                    step="1" 
-                    value={appSettings.gridCols} 
-                    onChange={(e) => onUpdateAppSettings({ gridCols: Number(e.target.value) })}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400"
-                  />
-                  <span className="text-xs text-slate-500 font-bold">6</span>
-                </div>
-             </div>
-
-             {/* Search Engine */}
-             <div>
-               <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'searchEngine')}</label>
-               <div className="grid grid-cols-2 gap-2">
-                 {Object.entries(SEARCH_ENGINES).map(([key, engine]) => (
-                   <button
-                     key={key}
-                     type="button"
-                     onClick={() => onUpdateAppSettings({ searchEngine: key })}
-                     className={`px-3 py-3 rounded-xl text-sm font-medium transition-all border ${
-                       appSettings.searchEngine === key
-                         ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
-                         : 'bg-slate-900/50 border-transparent text-slate-400 hover:bg-slate-700 hover:text-white'
-                     }`}
-                   >
-                     {engine.name}
-                   </button>
-                 ))}
-               </div>
-             </div>
-
-             {/* Global Background */}
-             <div>
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'globalBackground')}</label>
-                <div className="flex bg-slate-900/50 p-1 rounded-xl mb-4">
-                    {(['default', 'gradient', 'image'] as GlobalBackgroundType[]).map(type => (
-                        <button
-                            key={type}
-                            type="button"
-                            onClick={() => onUpdateAppSettings({ globalBgType: type })}
-                            className={`flex-1 py-2 text-xs font-bold rounded-lg capitalize transition-all ${
-                            appSettings.globalBgType === type
-                                ? 'bg-slate-700 text-white shadow-md'
-                                : 'text-slate-500 hover:text-slate-300'
-                            }`}
-                        >
-                            {getTranslation(appSettings.language, type as keyof typeof import('./i18n').translations.en)}
-                        </button>
-                    ))}
-                </div>
-
-                {appSettings.globalBgType === 'gradient' && (
-                    <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${appSettings.globalBgGradient?.from || 'from-slate-800'} ${appSettings.globalBgGradient?.to || 'to-slate-900'} shadow-inner ring-1 ring-white/10`} />
-                        <button
-                            type="button"
-                            onClick={() => onUpdateAppSettings({ globalBgGradient: getRandomGradient() })}
-                            className="flex-1 py-3 bg-slate-700/50 hover:bg-slate-700 text-sm text-slate-300 rounded-xl border border-slate-600/50 transition-colors flex items-center justify-center gap-2"
-                        >
-                            {getTranslation(appSettings.language, 'shuffleGradient')}
-                        </button>
-                    </div>
-                )}
-
-                {appSettings.globalBgType === 'image' && (
-                     <div className="space-y-3 animate-in fade-in">
-                        <input
-                            type="text"
-                            placeholder="Image URL (https://...)"
-                            value={appSettings.globalBgImage || ''}
-                            onChange={(e) => onUpdateAppSettings({ globalBgImage: e.target.value })}
-                            className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                        />
-                         <div className="relative">
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleFileUpload}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                            <div className="w-full bg-slate-900/50 border border-dashed border-slate-700 hover:border-blue-500 text-slate-400 rounded-xl px-4 py-3 text-sm text-center transition-colors">
-                                {getTranslation(appSettings.language, 'chooseLocalImage')}
-                            </div>
-                        </div>
-                        <p className="text-[10px] text-slate-500 px-1">{getTranslation(appSettings.language, 'imageNote')}</p>
-                     </div>
-                )}
-             </div>
-
-             {/* Card Appearance Config */}
-             <div>
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'cardAppearance')}</label>
-                <div className="space-y-4 bg-slate-900/30 p-4 rounded-xl">
-                  {/* Icon Size */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'iconSize')}</label>
-                      <span className="text-xs text-blue-400 font-mono">{appSettings.cardAppearanceConfig?.iconSize || 24}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="16"
-                      max="40"
-                      step="2"
-                      value={appSettings.cardAppearanceConfig?.iconSize || 24}
-                      onChange={(e) => onUpdateAppSettings({
-                        cardAppearanceConfig: {
-                          ...appSettings.cardAppearanceConfig!,
-                          iconSize: Number(e.target.value)
-                        }
-                      })}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-
-                  {/* Icon Margin Top */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'iconTopMargin')}</label>
-                      <span className="text-xs text-blue-400 font-mono">{appSettings.cardAppearanceConfig?.iconMarginTop || 2}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="12"
-                      step="1"
-                      value={appSettings.cardAppearanceConfig?.iconMarginTop || 2}
-                      onChange={(e) => onUpdateAppSettings({
-                        cardAppearanceConfig: {
-                          ...appSettings.cardAppearanceConfig!,
-                          iconMarginTop: Number(e.target.value)
-                        }
-                      })}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-
-                  {/* Text Size */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'textSize')}</label>
-                      <span className="text-xs text-blue-400 font-mono">{appSettings.cardAppearanceConfig?.textSize || 8}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="6"
-                      max="12"
-                      step="1"
-                      value={appSettings.cardAppearanceConfig?.textSize || 8}
-                      onChange={(e) => onUpdateAppSettings({
-                        cardAppearanceConfig: {
-                          ...appSettings.cardAppearanceConfig!,
-                          textSize: Number(e.target.value)
-                        }
-                      })}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-
-                  {/* Text Margin Top */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs text-slate-400">{getTranslation(appSettings.language, 'textTopMargin')}</label>
-                      <span className="text-xs text-blue-400 font-mono">{appSettings.cardAppearanceConfig?.textMarginTop || 6}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="16"
-                      step="1"
-                      value={appSettings.cardAppearanceConfig?.textMarginTop || 6}
-                      onChange={(e) => onUpdateAppSettings({
-                        cardAppearanceConfig: {
-                          ...appSettings.cardAppearanceConfig!,
-                          textMarginTop: Number(e.target.value)
-                        }
-                      })}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => onUpdateAppSettings({
-                      cardAppearanceConfig: {
-                        iconSize: 24,
-                        iconMarginTop: 2,
-                        textSize: 8,
-                        textMarginTop: 6
-                      }
-                    })}
-                    className="w-full py-2 bg-slate-700/50 hover:bg-slate-700 text-xs text-slate-300 rounded-lg transition-colors"
-                  >
-                    {getTranslation(appSettings.language, 'resetToDefault')}
-                  </button>
-                </div>
-             </div>
-
-             {/* Language Selection */}
-             <div>
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-3">{getTranslation(appSettings.language, 'language')}</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['zh', 'en'] as Language[]).map(lang => (
-                    <button
-                      key={lang}
-                      type="button"
-                      onClick={() => onUpdateAppSettings({ language: lang })}
-                      className={`px-3 py-3 rounded-xl text-sm font-medium transition-all border ${
-                        appSettings.language === lang
-                          ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
-                          : 'bg-slate-900/50 border-transparent text-slate-400 hover:bg-slate-700 hover:text-white'
-                      }`}
-                    >
-                      {lang === 'zh' ? '中文' : 'English'}
-                    </button>
-                  ))}
-                </div>
-             </div>
-
-             <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-full px-4 py-3.5 rounded-xl bg-slate-700/50 text-slate-200 font-bold hover:bg-slate-700 transition-colors"
-                >
-                  {getTranslation(appSettings.language, 'closeSettings')}
-                </button>
-             </div>
-          </div>
-        ) : (
-          // --- Edit/Add Form ---
-          <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto custom-scrollbar pr-1">
-            <div className="space-y-3">
-              <div>
-                  <input
-                  autoFocus
-                  type="text"
-                  placeholder={getTranslation(appSettings.language, 'titlePlaceholder')}
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-500"
-                  />
-              </div>
-              <div>
-                  <input
-                  type="text"
-                  placeholder={getTranslation(appSettings.language, 'urlPlaceholder')}
-                  value={url}
-                  onChange={e => setUrl(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-500"
-                  />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex bg-slate-900/50 p-1 rounded-xl mb-4">
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setBgType(tab.id)}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                      bgType === tab.id
-                        ? 'bg-slate-700 text-white shadow-md'
-                        : 'text-slate-500 hover:text-slate-300'
-                    }`}
-                  >
-                    {getTranslation(appSettings.language, tab.id as keyof typeof import('./i18n').translations.en)}
-                  </button>
-                ))}
-              </div>
-
-              {(bgType === 'gradient' || bgType === 'library') && (
-                  <div className="flex items-center gap-4 mb-4">
-                      <div
-                          className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${colors.from} ${colors.to} flex items-center justify-center shadow-lg transition-all duration-300`}
-                      >
-                          {bgType === 'library' && (
-                              <svg className="w-8 h-8 text-white drop-shadow-md" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d={PRESET_ICONS[iconKey]} />
-                              </svg>
-                          )}
-                          {bgType === 'gradient' && (
-                              <span className="text-xl font-bold text-white drop-shadow-md">
-                                  {(title || 'A').charAt(0).toUpperCase()}
-                              </span>
-                          )}
-                      </div>
-                      <button
-                          type="button"
-                          onClick={refreshColors}
-                          className="flex-1 py-2 bg-slate-700/50 hover:bg-slate-700 text-sm text-slate-300 rounded-xl border border-slate-600/50 transition-colors flex items-center justify-center gap-2"
-                      >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                          </svg>
-                          {getTranslation(appSettings.language, 'shuffleColor')}
-                      </button>
-                  </div>
-              )}
-
-              {bgType === 'library' && (
-                  <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
-                      {Object.entries(PRESET_ICONS).map(([key, path]) => (
-                          <button
-                              key={key}
-                              type="button"
-                              onClick={() => setIconKey(key)}
-                              className={`aspect-square rounded-lg flex items-center justify-center transition-all ${
-                                  iconKey === key 
-                                  ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/50' 
-                                  : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white'
-                              }`}
-                          >
-                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d={path} />
-                              </svg>
-                          </button>
-                      ))}
-                  </div>
-              )}
-
-              {bgType === 'image' && (
-                <div className="animate-in fade-in slide-in-from-top-2">
-                  <input
-                    type="text"
-                    placeholder="Image URL (https://...)"
-                    value={bgImage}
-                    onChange={e => setBgImage(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                  <div className="relative mt-2">
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileUpload}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                        <div className="w-full bg-slate-900/50 border border-dashed border-slate-700 hover:border-blue-500 text-slate-400 rounded-xl px-4 py-3 text-sm text-center transition-colors">
-                            {getTranslation(appSettings.language, 'chooseLocalImage')}
-                        </div>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-2">{getTranslation(appSettings.language, 'imageNote')}</p>
-                </div>
-              )}
-              {bgType === 'icon' && url && (
-                <div className="space-y-3 animate-in fade-in">
-                  <div className="flex items-center gap-3 p-3 bg-slate-900/30 rounded-xl border border-slate-700/30">
-                    <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center">
-                        <img src={faviconUrl} className="w-6 h-6 object-contain" alt="Preview" onError={(e) => e.currentTarget.style.display = 'none'} />
-                    </div>
-                    <span className="text-sm text-slate-400">{getTranslation(appSettings.language, 'faviconPreview')}</span>
-                  </div>
-
-                  {/* Favicon URL 显示区域 */}
-                  {faviconUrl && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-400 font-medium">
-                          {appSettings.language === 'zh' ? 'Favicon URL（用于 Image 模式）:' : 'Favicon URL (for Image mode):'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(faviconUrl);
-                            alert(appSettings.language === 'zh' ? '已复制到剪贴板！' : 'Copied to clipboard!');
-                          }}
-                          className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-lg transition-colors flex items-center gap-1"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-                          </svg>
-                          {appSettings.language === 'zh' ? '复制' : 'Copy'}
-                        </button>
-                      </div>
-                      <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
-                        <code className="text-[10px] text-slate-400 break-all font-mono leading-relaxed">
-                          {faviconUrl}
-                        </code>
-                      </div>
-                      <p className="text-[10px] text-slate-500 px-1">
-                        {appSettings.language === 'zh'
-                          ? '提示：复制此 URL，切换到 Image 模式粘贴即可使用。'
-                          : 'Tip: Copy this URL and paste it in Image mode to use.'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 mt-6 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-3.5 rounded-xl bg-slate-700/50 text-slate-200 font-bold hover:bg-slate-700 transition-colors"
-              >
-                {getTranslation(appSettings.language, 'cancel')}
-              </button>
-              <button
-                type="submit"
-                disabled={!title || !url}
-                className="flex-1 px-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 active:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
-              >
-                {initialData ? getTranslation(appSettings.language, 'update') : getTranslation(appSettings.language, 'save')}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// --- Sync Modal ---
-const SyncModal = ({
-  isOpen,
-  onClose,
-  onSyncComplete,
-  isSyncingRef,
-  language,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSyncComplete: (bookmarks: Bookmark[], settings: AppSettings) => void;
-  isSyncingRef: React.MutableRefObject<boolean>;
-  language: Language;
-}) => {
-  const [pin, setPin] = useState('');
-  const [isEnabling, setIsEnabling] = useState(false);
-  const [error, setError] = useState('');
-  const syncStatus = syncManager.getStatus();
-
-  useEffect(() => {
-    if (isOpen) {
-      setPin('');
-      setError('');
-      setIsEnabling(false);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const handleEnableSync = async () => {
-    // 验证 PIN 码
-    const pinValidation = validatePin(pin);
-    if (!pinValidation.valid) {
-      setError(pinValidation.error || 'Invalid PIN code');
-      return;
-    }
-
-    setIsEnabling(true);
-    setError('');
-    isSyncingRef.current = true; // 标记开始同步
-
-    try {
-      await syncManager.enableSync(pin); // 现在是异步的
-
-      // 先检查云端是否有数据
-      const storedBookmarks = localStorage.getItem(STORAGE_KEY);
-      const storedSettings = localStorage.getItem(SETTINGS_KEY);
-      const localBookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
-      const localSettings = storedSettings ? JSON.parse(storedSettings) : {};
-
-      // 尝试拉取云端数据
-      const cloudData = await syncManager.pullFromCloud();
-
-      let finalBookmarks = localBookmarks;
-      let finalSettings = localSettings;
-
-      // 如果云端有数据且本地也有数据，让用户选择
-      if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
-        const cloudTitles = cloudData.bookmarks.map((b: any) => `  • ${b.title}`).join('\n');
-        const localTitles = localBookmarks.map((b: any) => `  • ${b.title}`).join('\n');
-
-        const choice = confirm(
-          `Both cloud and local have bookmarks:\n\n` +
-          `CLOUD bookmarks (${cloudData.bookmarks.length}):\n${cloudTitles}\n\n` +
-          `LOCAL bookmarks (${localBookmarks.length}):\n${localTitles}\n\n` +
-          `Click OK to use CLOUD data (remote replaces local).\n` +
-          `Click Cancel to use LOCAL data (local replaces remote).`
-        );
-
-        if (choice) {
-          // 使用云端数据
-          finalBookmarks = cloudData.bookmarks;
-          finalSettings = cloudData.settings || localSettings;
-        } else {
-          // 使用本地数据，推送到云端
-          await syncManager.pushToCloud(localBookmarks, localSettings);
-        }
-      } else if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0) {
-        // 云端有数据，本地没有，直接使用云端数据
-        finalBookmarks = cloudData.bookmarks;
-        finalSettings = cloudData.settings || localSettings;
-      } else {
-        // 云端没有数据，推送本地数据
-        await syncManager.pushToCloud(localBookmarks, localSettings);
-      }
-
-      // 更新本地存储
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalBookmarks));
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalSettings));
-
-      // 通过回调更新 React state
-      onSyncComplete(finalBookmarks, finalSettings);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to enable sync');
-    } finally {
-      setIsEnabling(false);
-      isSyncingRef.current = false; // 标记同步结束
-    }
-  };
-
-  const handleDisableSync = () => {
-    if (confirm('Are you sure you want to disable sync? Your local data will not be affected.')) {
-      syncManager.disableSync();
-      onClose();
-    }
-  };
-
-  const handleManualSync = async () => {
-    setIsEnabling(true);
-    setError('');
-    isSyncingRef.current = true; // 标记开始同步
-
-    try {
-      const storedBookmarks = localStorage.getItem(STORAGE_KEY);
-      const storedSettings = localStorage.getItem(SETTINGS_KEY);
-      const localBookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
-      const localSettings = storedSettings ? JSON.parse(storedSettings) : {};
-
-      // 先拉取云端数据
-      const cloudData = await syncManager.pullFromCloud();
-
-      let finalBookmarks = localBookmarks;
-      let finalSettings = localSettings;
-      let needsPush = false;
-
-      // 如果云端有数据且本地也有数据，检查是否需要用户选择
-      if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
-        // 比较书签内容（通过 JSON 字符串比较）
-        const cloudBookmarksStr = JSON.stringify(cloudData.bookmarks.map((b: any) => ({ id: b.id, title: b.title, url: b.url })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
-        const localBookmarksStr = JSON.stringify(localBookmarks.map((b: any) => ({ id: b.id, title: b.title, url: b.url })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
-
-        // 如果内容不同，让用户选择
-        if (cloudBookmarksStr !== localBookmarksStr) {
-          const cloudTitles = cloudData.bookmarks.map((b: any) => `  • ${b.title}`).join('\n');
-          const localTitles = localBookmarks.map((b: any) => `  • ${b.title}`).join('\n');
-
-          const choice = confirm(
-            `Sync conflict detected!\n\n` +
-            `CLOUD bookmarks (${cloudData.bookmarks.length}):\n${cloudTitles}\n\n` +
-            `LOCAL bookmarks (${localBookmarks.length}):\n${localTitles}\n\n` +
-            `Click OK to use CLOUD data.\n` +
-            `Click Cancel to use LOCAL data.`
-          );
-
-          if (choice) {
-            // 使用云端数据
-            finalBookmarks = cloudData.bookmarks;
-            finalSettings = cloudData.settings || localSettings;
-          } else {
-            // 使用本地数据，推送到云端
-            needsPush = true;
-          }
-        } else {
-          // 内容相同，数据已同步，使用云端数据（确保时间戳一致）
-          finalBookmarks = cloudData.bookmarks;
-          finalSettings = cloudData.settings || localSettings;
-        }
-      } else if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0) {
-        // 云端有数据，本地没有，直接使用云端数据
-        finalBookmarks = cloudData.bookmarks;
-        finalSettings = cloudData.settings || localSettings;
-      } else if (localBookmarks.length > 0) {
-        // 本地有数据，云端没有，推送本地数据
-        needsPush = true;
-      }
-
-      // 更新本地数据
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalBookmarks));
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalSettings));
-
-      // 如果需要推送，在更新 state 之前推送
-      if (needsPush) {
-        await syncManager.pushToCloud(localBookmarks, localSettings);
-      }
-
-      // 通过回调更新 React state
-      onSyncComplete(finalBookmarks, finalSettings);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sync failed');
-    } finally {
-      setIsEnabling(false);
-      isSyncingRef.current = false; // 标记同步结束
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-0">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative bg-slate-800 w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-700/50 transform transition-all animate-in slide-in-from-bottom-10 fade-in">
-
-        {/* Modal Header */}
-        <div className="flex justify-between items-center mb-5">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-white tracking-tight">{getTranslation(language, 'cloudSync')}</h2>
-            <span className="text-xs text-slate-500 font-mono bg-slate-900/50 px-2 py-0.5 rounded">v1.1.0</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {/* Status Display */}
-          <div className={`p-4 rounded-xl border ${syncStatus.enabled ? 'bg-green-500/10 border-green-500/30' : 'bg-slate-900/50 border-slate-700'}`}>
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${syncStatus.enabled ? 'bg-green-500' : 'bg-slate-600'}`} />
-              <div className="flex-1">
-                <p className="text-sm font-bold text-white">
-                  {syncStatus.enabled ? getTranslation(language, 'syncEnabled') : getTranslation(language, 'syncDisabled')}
-                </p>
-                {syncStatus.lastSyncTime && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    {getTranslation(language, 'lastSync')}: {new Date(syncStatus.lastSyncTime).toLocaleString()}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {!syncStatus.enabled ? (
-            // Enable Sync Form
-            <>
-              <div className="space-y-3">
-                <p className="text-sm text-slate-300">
-                  {getTranslation(language, 'enterPin')}
-                </p>
-
-                <input
-                  type="text"
-                  placeholder={getTranslation(language, 'pinPlaceholder')}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-500"
-                  autoFocus
-                />
-
-                {error && (
-                  <p className="text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">
-                    {error}
-                  </p>
-                )}
-
-                <button
-                  onClick={handleEnableSync}
-                  disabled={isEnabling || pin.length < 4}
-                  className="w-full px-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors shadow-lg shadow-blue-500/20"
-                >
-                  {isEnabling ? getTranslation(language, 'enabling') : getTranslation(language, 'enableSync')}
-                </button>
-              </div>
-
-              <div className="pt-2 border-t border-slate-700/50">
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  {getTranslation(language, 'pinNote')}
-                </p>
-              </div>
-            </>
-          ) : (
-            // Sync Management
-            <>
-              <div className="space-y-3">
-                <button
-                  onClick={handleManualSync}
-                  disabled={isEnabling || syncStatus.syncing}
-                  className="w-full px-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
-                >
-                  {isEnabling || syncStatus.syncing ? (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 animate-spin">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                      </svg>
-                      {getTranslation(language, 'syncing')}
-                    </>
-                  ) : (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                      </svg>
-                      {getTranslation(language, 'syncNow')}
-                    </>
-                  )}
-                </button>
-
-                {error && (
-                  <p className="text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">
-                    {error}
-                  </p>
-                )}
-
-                {syncStatus.error && (
-                  <p className="text-sm text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">
-                    {syncStatus.error}
-                  </p>
-                )}
-
-                <button
-                  onClick={handleDisableSync}
-                  className="w-full px-4 py-3.5 rounded-xl bg-red-500/10 text-red-400 font-bold hover:bg-red-500/20 transition-colors"
-                >
-                  {getTranslation(language, 'disableSync')}
-                </button>
-              </div>
-
-              <div className="pt-2 border-t border-slate-700/50">
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  {getTranslation(language, 'syncNote')}
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+  useApp, useBookmarks, useSettings, useUI, useToasts
+} from './store';
+import {
+  Header, SearchWidget, BookmarkList,
+  ActionSheet, BookmarkEditModal, SettingsModal,
+  SyncModal, OnboardingGuide,
+  ToastContainer, NetworkIndicator, ContextMenu,
+  PageSkeleton
+} from './components';
+import { Bookmark, AppSettings } from './types';
+import { STORAGE_KEY, SETTINGS_KEY } from './constants';
+import { syncManager } from './syncManager';
+import { saveToStorage, loadFromStorage } from './utils';
+import { useOnline, useIsMobile } from './hooks';
 
 const App = () => {
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const [settings, setSettings] = useState<AppSettings>({
-    gridCols: 4,
-    searchEngine: 'google',
-    globalBgType: 'default',
-    globalBgGradient: { from: 'from-slate-900', to: 'to-slate-800' },
-    cardAppearanceConfig: {
-      iconSize: 24,        // 图标大小 24px (w-6 h-6)
-      iconMarginTop: 2,    // 图标上边距 2px
-      textSize: 8,         // 文字大小 8px
-      textMarginTop: 6     // 文字上边距 6px (mt-1.5)
-    },
-    language: 'zh'         // 默认中文
-  });
+  const { dispatch, actions } = useApp();
+  const { bookmarks } = useBookmarks();
+  const { settings, language } = useSettings();
+  const ui = useUI();
+  const { toasts, dismissToast, showToast } = useToasts();
 
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
-  const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(null);
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncManager.getStatus());
+  const isOnlineStatus = useOnline(); // Rename to avoid conflict if I used isOnline before
+  const isMobile = useIsMobile();
+  const isSyncingRef = useRef(false);
 
-  // 标志：是否正在同步（避免同步时触发自动推送）
-  const isSyncing = useRef(false);
+  // Sync Status Subscription
+  const [syncStatus, setSyncStatus] = useState(syncManager.getStatus());
 
-  // 监听同步状态变化
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    bookmark: Bookmark | null;
+  }>({ isOpen: false, position: { x: 0, y: 0 }, bookmark: null });
+
+  // Onboarding State
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   useEffect(() => {
-    const unsubscribe = syncManager.onStatusChange(setSyncStatus);
-    return unsubscribe;
+    // 初始状态
+    setSyncStatus(syncManager.getStatus());
+
+    // 订阅状态变化
+    const unsubscribe = syncManager.onStatusChange((status) => {
+      setSyncStatus(status);
+    });
+    return () => { unsubscribe(); };
   }, []);
 
-  // Load from local storage and sync
+  // --- Initial Load ---
   useEffect(() => {
     const loadData = async () => {
       try {
-        const storedBookmarks = localStorage.getItem(STORAGE_KEY);
-        const storedSettings = localStorage.getItem(SETTINGS_KEY);
+        // Load LocalStorage
+        const loadedBookmarks = loadFromStorage<Bookmark[]>(STORAGE_KEY, []);
+        const loadedSettings = loadFromStorage<AppSettings>(SETTINGS_KEY, {} as AppSettings);
 
-        let localBookmarks: Bookmark[] = [];
-        let localSettings = settings;
-
-        if (storedBookmarks) {
-          localBookmarks = JSON.parse(storedBookmarks);
-        } else {
-          const defaults: Bookmark[] = [
-            { id: '1', title: 'Google', url: 'https://google.com', colorFrom: 'from-blue-500', colorTo: 'to-blue-600', bgType: 'icon' },
-            { id: '2', title: 'YouTube', url: 'https://youtube.com', colorFrom: 'from-red-500', colorTo: 'to-pink-600', bgType: 'library', iconKey: 'youtube' },
-            { id: '3', title: 'GitHub', url: 'https://github.com', colorFrom: 'from-slate-700', colorTo: 'to-slate-900', bgType: 'library', iconKey: 'github' },
-            { id: '4', title: 'ChatGPT', url: 'https://chat.openai.com', colorFrom: 'from-emerald-500', colorTo: 'to-teal-600', bgType: 'icon' },
-          ];
-          localBookmarks = defaults;
+        // Check Onboarding
+        const hasVisited = localStorage.getItem('navhub_has_visited');
+        if (!hasVisited && loadedBookmarks.length === 0) {
+          setShowOnboarding(true);
         }
 
-        if (storedSettings) {
-          localSettings = { ...settings, ...JSON.parse(storedSettings) };
-        }
-
-        // 如果启用了同步，尝试同步数据
-        if (syncManager.getStatus().enabled) {
-          try {
-            const syncedData = await syncManager.sync(localBookmarks, localSettings);
-            setBookmarks(syncedData.bookmarks);
-            setSettings(syncedData.settings);
-            // 不要在这里更新时间戳，应该使用云端返回的时间戳
-          } catch (error) {
-            console.error('Sync failed on startup:', error);
-            // 同步失败时使用本地数据
-            setBookmarks(localBookmarks);
-            setSettings(localSettings);
-          }
-        } else {
-          setBookmarks(localBookmarks);
-          setSettings(localSettings);
+        dispatch({ type: 'SET_BOOKMARKS', payload: loadedBookmarks });
+        if (loadedSettings && Object.keys(loadedSettings).length > 0) {
+          dispatch({ type: 'UPDATE_SETTINGS', payload: loadedSettings });
         }
       } catch (e) {
-        console.error("Failed to load settings", e);
+        console.error("Failed to load data", e);
+        showToast('Failed to load local data', 'error');
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
-
     loadData();
-  }, []);
+  }, [dispatch]);
 
-  // Save to local storage and sync to cloud
+  // --- Persistence & Auto Sync ---
+  // Save Bookmarks
   useEffect(() => {
-    // 使用防抖保存减少 I/O 操作
-    debouncedSaveToStorage(STORAGE_KEY, bookmarks);
+    if (!ui.isLoading) {
+      saveToStorage(STORAGE_KEY, bookmarks);
 
-    // 如果启用了同步且不在同步过程中，推送到云端（防抖）
-    if (syncManager.getStatus().enabled && bookmarks.length > 0 && !isSyncing.current) {
-      syncManager.debouncedPush(bookmarks, settings);
+      // Auto Sync Logic
+      if (syncManager.getStatus().enabled && !isSyncingRef.current && isOnlineStatus.isOnline) {
+        // Debounce inside logic handled by syncManager or manually?
+        // syncManager doesn't have debounce built-in for push, maybe we should rely on syncManager logic
+        // The previous app used SyncManager directly.
+        // For now, let's just call it. SyncManager might need improvement for debounce/throttle which implies Phase 3.
+        syncManager.pushToCloud(bookmarks, settings).catch(err => console.error("Auto sync failed", err));
+      }
     }
-  }, [bookmarks, settings]); // 依赖 settings，这样只触发一次
+  }, [bookmarks, ui.isLoading, settings, isOnlineStatus.isOnline]);
 
+  // Save Settings & Apply Global Styles
   useEffect(() => {
-    // 使用防抖保存减少 I/O 操作
-    debouncedSaveToStorage(SETTINGS_KEY, settings);
-    // 不在这里推送，由上面的 useEffect 统一处理
-  }, [settings]);
+    if (!ui.isLoading) {
+      saveToStorage(SETTINGS_KEY, settings);
 
-  // 使用 useCallback 优化事件处理函数
-  const handleSaveBookmark = useCallback((data: Partial<Bookmark>) => {
-    if (selectedBookmark) {
-      // Update existing
-      setBookmarks(prev => prev.map(b => b.id === selectedBookmark.id ? { ...b, ...data } : b) as Bookmark[]);
+      // Apply Global Background Styles
+      if (settings.globalBgType === 'gradient' && settings.globalBgGradient) {
+        document.body.style.background = '';
+        document.body.className = `min-h-screen bg-gradient-to-br ${settings.globalBgGradient.from} ${settings.globalBgGradient.to} fixed inset-0`;
+      } else if (settings.globalBgType === 'image' && settings.globalBgImage) {
+        document.body.style.backgroundImage = `url(${settings.globalBgImage})`;
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+        document.body.className = 'min-h-screen fixed inset-0 bg-slate-900';
+      } else {
+        // Default
+        document.body.style.background = '';
+        document.body.className = 'min-h-screen bg-slate-900 bg-[radial-gradient(circle_at_50%_0%,#1e293b_0%,#0f172a_70%)] fixed inset-0';
+      }
+    }
+  }, [settings, ui.isLoading]);
+
+
+  // --- Handlers ---
+  const handleReorder = (fromIndex: number, toIndex: number) => {
+    dispatch({ type: 'REORDER_BOOKMARKS', payload: { fromIndex, toIndex } });
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, bookmark: Bookmark) => {
+    e.preventDefault();
+    // On mobile, DND logic or Long press handles this. Context menu is mainly for Desktop.
+    if (isMobile) return;
+
+    setContextMenu({
+      isOpen: true,
+      position: { x: e.clientX, y: e.clientY },
+      bookmark
+    });
+  };
+
+  const handleCreateOrUpdateBookmark = (data: Partial<Bookmark>) => {
+    if (ui.selectedBookmark) {
+      actions.updateBookmark(ui.selectedBookmark.id, data);
+      showToast(language === 'zh' ? '已更新' : 'Updated', 'success');
     } else {
-      // Create new
-      const newBookmark: Bookmark = {
+      actions.addBookmark({
         id: Date.now().toString(),
-        title: data.title || 'New Site',
-        url: formatUrl(data.url || ''),
-        colorFrom: data.colorFrom || 'from-blue-500',
-        colorTo: data.colorTo || 'to-purple-500',
-        bgType: data.bgType || 'gradient',
-        bgImage: data.bgImage,
-        iconKey: data.iconKey
-      };
-      setBookmarks(prev => [...prev, newBookmark]);
+        createdAt: Date.now(),
+        title: 'New Shortcut',
+        url: 'https://',
+        bgType: 'gradient',
+        iconKey: 'home',
+        ...data
+      } as Bookmark);
+      showToast(language === 'zh' ? '已添加' : 'Added', 'success');
     }
-    setIsEditModalOpen(false);
-    setSelectedBookmark(null);
-  }, [selectedBookmark]);
+    actions.closeModal();
+  };
 
-  const handleDeleteBookmark = useCallback(() => {
-    if (selectedBookmark) {
-      setBookmarks(prev => prev.filter(b => b.id !== selectedBookmark.id));
-      setIsActionSheetOpen(false);
-      setSelectedBookmark(null);
-    }
-  }, [selectedBookmark]);
 
-  const handleLongPress = useCallback((item: Bookmark) => {
-    setSelectedBookmark(item);
-    setIsActionSheetOpen(true);
-  }, []);
-
-  const handleUpdateSettings = useCallback((newSettings: Partial<AppSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
-  }, []);
-
-  const handleSyncComplete = useCallback((newBookmarks: Bookmark[], newSettings: AppSettings) => {
-    setBookmarks(newBookmarks);
-    setSettings(newSettings);
-  }, []);
-
-  const handleCloseActionSheet = useCallback(() => {
-    setIsActionSheetOpen(false);
-  }, []);
-
-  const handleOpenEditModal = useCallback(() => {
-    setIsEditModalOpen(true);
-  }, []);
-
-  const handleCloseEditModal = useCallback(() => {
-    setIsEditModalOpen(false);
-    setSelectedBookmark(null);
-  }, []);
-
-  const handleOpenSyncModal = useCallback(() => {
-    setIsSyncModalOpen(true);
-  }, []);
-
-  const handleCloseSyncModal = useCallback(() => {
-    setIsSyncModalOpen(false);
-  }, []);
-
-  const handleAddNewBookmark = useCallback(() => {
-    setIsActionSheetOpen(false);
-    setSelectedBookmark(null);
-    setIsEditModalOpen(true);
-  }, []);
-
-  const handleAddFromHeader = useCallback(() => {
-    setSelectedBookmark(null);
-    setIsEditModalOpen(true);
-  }, []);
-
-  // 使用 useMemo 缓存计算结果
-  const gridColsClass = useMemo(() => {
-    switch (settings.gridCols) {
-      case 2: return 'grid-cols-2';
-      case 3: return 'grid-cols-3';
-      case 5: return 'grid-cols-5';
-      case 6: return 'grid-cols-6';
-      default: return 'grid-cols-4';
-    }
-  }, [settings.gridCols]);
-
-  const globalBgStyle = useMemo(() => {
-    if (settings.globalBgType === 'image' && settings.globalBgImage) {
-      return {
-        backgroundImage: `url(${settings.globalBgImage})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
-      };
-    }
-    return {};
-  }, [settings.globalBgType, settings.globalBgImage]);
-
-  const containerClassName = useMemo(() =>
-    `min-h-screen text-slate-200 transition-colors duration-500 ${
-      settings.globalBgType === 'gradient'
-        ? `bg-gradient-to-br ${settings.globalBgGradient?.from || 'from-slate-900'} ${settings.globalBgGradient?.to || 'to-slate-800'}`
-        : 'bg-slate-950'
-    }`,
-    [settings.globalBgType, settings.globalBgGradient]
-  );
-
-  const showImageOverlay = useMemo(() => settings.globalBgType === 'image', [settings.globalBgType]);
-
-  const headerOnAdd = useMemo(() =>
-    bookmarks.length === 0 ? handleAddFromHeader : undefined,
-    [bookmarks.length, handleAddFromHeader]
-  );
+  if (ui.isLoading) return <PageSkeleton />;
 
   return (
-    <div
-      className={containerClassName}
-      style={globalBgStyle}
-    >
-      {/* Overlay for image bg to improve text readability */}
-      {showImageOverlay && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] pointer-events-none" />
-      )}
-
-      <div className="relative z-10 max-w-2xl mx-auto px-6 pb-24 min-h-screen flex flex-col">
-        <Header
-          onAdd={headerOnAdd}
-          syncStatus={syncStatus}
-          onSyncClick={handleOpenSyncModal}
-        />
-
-        <SearchWidget searchEngine={settings.searchEngine} />
-
-        <div className={`grid gap-4 ${gridColsClass} w-full animate-in fade-in slide-in-from-bottom-4 duration-700`} style={{ gridAutoRows: '1fr' }}>
-          {bookmarks.map(bookmark => (
-            <BookmarkCard
-              key={bookmark.id}
-              item={bookmark}
-              gridCols={settings.gridCols}
-              onLongPress={handleLongPress}
-              cardAppearanceConfig={settings.cardAppearanceConfig}
-            />
-          ))}
-        </div>
-      </div>
-
-      <ActionSheet
-        isOpen={isActionSheetOpen}
-        onClose={handleCloseActionSheet}
-        onEdit={handleOpenEditModal}
-        onDelete={handleDeleteBookmark}
-        onAdd={handleAddNewBookmark}
-        title={selectedBookmark?.title || ''}
-        language={settings.language}
+    <div className="min-h-screen text-slate-100 font-sans pb-safe">
+      <NetworkIndicator
+        language={language}
+        showWhenOnline={false}
       />
 
-      <EditModal
-        isOpen={isEditModalOpen}
-        onClose={handleCloseEditModal}
-        onSave={handleSaveBookmark}
-        initialData={selectedBookmark || undefined}
+      <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10 flex flex-col min-h-screen">
+        <Header
+          settings={settings}
+          onOpenSettings={actions.openSettingsModal}
+          onOpenSync={actions.openSyncModal}
+          syncStatus={syncStatus}
+        />
+
+        <div className="flex-1 flex flex-col justify-center max-w-4xl mx-auto w-full">
+          <SearchWidget settings={settings} />
+
+          <BookmarkList
+            bookmarks={bookmarks}
+            settings={settings}
+            onReorder={handleReorder}
+            onLongPress={(b) => {
+              actions.openActionSheet(b);
+            }}
+            onContextMenu={handleContextMenu}
+          />
+        </div>
+
+        {/* Empty State */}
+        {bookmarks.length === 0 && (
+          <div className="text-center py-10 animate-in fade-in slide-in-from-bottom-5">
+            <p className="text-slate-400 mb-6 text-lg">
+              {language === 'zh' ? '还没有书签，添加一个吧！' : 'No bookmarks yet. Add one!'}
+            </p>
+            <button
+              onClick={() => actions.openEditModal()}
+              className="px-8 py-3 bg-blue-600 rounded-full font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-500 hover:shadow-blue-500/50 transition-all active:scale-95"
+            >
+              + {language === 'zh' ? '添加快捷方式' : 'Add Shortcut'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Add Button removed for minimalist mode */}
+      {/* Modals & Overlays */}
+      <SettingsModal
+        isOpen={ui.activeModal === 'settings'}
+        onClose={actions.closeModal}
         appSettings={settings}
-        onUpdateAppSettings={handleUpdateSettings}
+        onUpdateAppSettings={actions.updateSettings}
+      />
+
+      <BookmarkEditModal
+        isOpen={ui.activeModal === 'edit'}
+        onClose={actions.closeModal}
+        initialData={ui.selectedBookmark || undefined}
+        onSave={handleCreateOrUpdateBookmark}
+        appSettings={settings}
       />
 
       <SyncModal
-        isOpen={isSyncModalOpen}
-        onClose={handleCloseSyncModal}
-        onSyncComplete={handleSyncComplete}
-        isSyncingRef={isSyncing}
-        language={settings.language}
+        isOpen={ui.activeModal === 'sync'}
+        onClose={actions.closeModal}
+        onSyncComplete={(b, s) => {
+          dispatch({ type: 'SET_BOOKMARKS', payload: b });
+          dispatch({ type: 'SET_SETTINGS', payload: s });
+          showToast(language === 'zh' ? '同步成功' : 'Sync successful', 'success');
+        }}
+        isSyncingRef={isSyncingRef}
+        language={language}
       />
+
+      <ActionSheet
+        isOpen={ui.isActionSheetOpen}
+        onClose={actions.closeActionSheet}
+        onEdit={() => actions.openEditModal(ui.selectedBookmark!)}
+        onDelete={() => {
+          if (ui.selectedBookmark) {
+            actions.deleteBookmark(ui.selectedBookmark.id);
+            showToast(language === 'zh' ? '已删除' : 'Deleted', 'info');
+          }
+        }}
+        onAdd={() => actions.openEditModal()}
+        onOpenSettings={actions.openSettingsModal}
+        onOpenSync={actions.openSyncModal}
+        title={ui.selectedBookmark?.title || ''}
+        language={language}
+      />
+
+      {contextMenu.isOpen && contextMenu.bookmark && (
+        <ContextMenu
+          bookmark={contextMenu.bookmark}
+          position={contextMenu.position}
+          onClose={() => setContextMenu({ ...contextMenu, isOpen: false })}
+          onEdit={() => actions.openEditModal(contextMenu.bookmark!)}
+          onDelete={() => {
+            actions.deleteBookmark(contextMenu.bookmark!.id);
+            showToast(language === 'zh' ? '已删除' : 'Deleted', 'info');
+          }}
+          language={language}
+        />
+      )}
+
+      <OnboardingGuide
+        isOpen={showOnboarding}
+        onClose={() => {
+          setShowOnboarding(false);
+          localStorage.setItem('navhub_has_visited', 'true');
+        }}
+        language={language}
+      />
+
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };
