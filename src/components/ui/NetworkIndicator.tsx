@@ -1,5 +1,5 @@
 import React from 'react';
-import { useIsOnline, useOnline } from '../../hooks';
+import { useOnline } from '../../hooks';
 import { Language } from '../../types';
 import { getTranslation } from '../../i18n';
 
@@ -76,23 +76,6 @@ export const NetworkIndicator: React.FC<NetworkIndicatorProps> = ({
                 </svg>
             )}
         </div>
-    );
-};
-
-/**
- * 简化版：仅显示小圆点
- */
-export const NetworkDot: React.FC = () => {
-    const isOnline = useIsOnline();
-
-    return (
-        <span
-            className={`
-        w-2 h-2 rounded-full
-        ${isOnline ? 'bg-green-500' : 'bg-red-500 animate-pulse'}
-      `}
-            title={isOnline ? 'Online' : 'Offline'}
-        />
     );
 };
 

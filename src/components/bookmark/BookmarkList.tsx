@@ -3,7 +3,6 @@ import {
     DndContext,
     closestCenter,
     KeyboardSensor,
-    PointerSensor,
     useSensor,
     useSensors,
     DragEndEvent,

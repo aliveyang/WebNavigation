@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { syncManager, type SyncStatus } from '../../syncManager';
 import { Bookmark, AppSettings, Language } from '../../types';
-import { validatePin } from '../../utils';
+import { validatePin, sanitizeBookmarks } from '../../utils';
 import { getTranslation } from '../../i18n';
 import { STORAGE_KEY, SETTINGS_KEY } from '../../constants';
 
@@ -93,11 +93,11 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             }
 
             // 更新本地存储
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(finalBookmarks));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeBookmarks(finalBookmarks)));
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalSettings));
 
             // 通过回调更新 React state
-            onSyncComplete(finalBookmarks, finalSettings);
+            onSyncComplete(sanitizeBookmarks(finalBookmarks), finalSettings);
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to enable sync');
@@ -174,7 +174,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             }
 
             // 更新本地数据
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(finalBookmarks));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeBookmarks(finalBookmarks)));
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalSettings));
 
             // 如果需要推送，在更新 state 之前推送
@@ -183,7 +183,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             }
 
             // 通过回调更新 React state
-            onSyncComplete(finalBookmarks, finalSettings);
+            onSyncComplete(sanitizeBookmarks(finalBookmarks), finalSettings);
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Sync failed');
@@ -202,7 +202,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                 <div className="flex justify-between items-center mb-5">
                     <div className="flex items-center gap-2">
                         <h2 className="text-xl font-bold text-white tracking-tight">{getTranslation(language, 'cloudSync')}</h2>
-                        <span className="text-xs text-slate-500 font-mono bg-slate-900/50 px-2 py-0.5 rounded">v1.1.0</span>
+                        <span className="text-xs text-slate-500 font-mono bg-slate-900/50 px-2 py-0.5 rounded">v{__APP_VERSION__}</span>
                     </div>
                     <button
                         onClick={onClose}

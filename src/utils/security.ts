@@ -53,10 +53,15 @@ export const ALLOWED_LOCAL_PROTOCOLS = [
 /**
  * 验证 URL 是否安全
  * 允许 http、https 和本地应用协议
+ * 明确拒绝 javascript:、data:、vbscript: 等可执行协议
  */
 export const isSafeUrl = (url: string): boolean => {
   try {
     const parsed = new URL(url);
+    // 检查是否是可执行的危险协议
+    if (['javascript:', 'data:', 'vbscript:'].includes(parsed.protocol)) {
+      return false;
+    }
     // 检查是否是允许的协议
     if (ALLOWED_LOCAL_PROTOCOLS.includes(parsed.protocol)) {
       return true;
@@ -106,21 +111,6 @@ export const sanitizeUrl = (url: string): string => {
   }
 
   return trimmed;
-};
-
-/**
- * 转义 HTML 特殊字符，防止 XSS
- */
-export const escapeHtml = (text: string): string => {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#x27;',
-    '/': '&#x2F;',
-  };
-  return text.replace(/[&<>"'/]/g, (char) => map[char]);
 };
 
 /**
@@ -234,19 +224,17 @@ export const validatePin = (pin: string): { valid: boolean; error?: string } => 
 };
 
 /**
- * 清理用户输入的文本
+ * 清洗书签数组，确保所有 URL 都是安全的
+ * 用于云端同步数据落地前校验（防 XSS）
+ * @param bookmarks 书签数组
+ * @returns 清洗后的书签数组（丢弃危险 URL 的书签）
  */
-export const sanitizeText = (text: string, maxLength = 100): string => {
-  // 移除 HTML 标签
-  let cleaned = text.replace(/<[^>]*>/g, '');
-
-  // 转义特殊字符
-  cleaned = escapeHtml(cleaned);
-
-  // 限制长度
-  if (cleaned.length > maxLength) {
-    cleaned = cleaned.substring(0, maxLength);
-  }
-
-  return cleaned.trim();
+export const sanitizeBookmarks = <T extends { url: string }>(bookmarks: T[]): T[] => {
+  return bookmarks.filter((b) => {
+    try {
+      return isSafeUrl(sanitizeUrl(b.url));
+    } catch {
+      return false;
+    }
+  });
 };

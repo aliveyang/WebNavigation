@@ -72,6 +72,5 @@ class RateLimiter {
 
 // 创建全局速率限制器实例
 export const syncRateLimiter = new RateLimiter(10, 60000); // 10 requests per minute
-export const apiRateLimiter = new RateLimiter(30, 60000);  // 30 requests per minute
 
 export { RateLimiter };

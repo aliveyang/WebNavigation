@@ -12,7 +12,7 @@ import {
 import { Bookmark, AppSettings } from './types';
 import { STORAGE_KEY, SETTINGS_KEY } from './constants';
 import { syncManager } from './syncManager';
-import { saveToStorage, loadFromStorage } from './utils';
+import { saveToStorage, loadFromStorage, sanitizeBookmarks } from './utils';
 import { useOnline, useIsMobile } from './hooks';
 
 const App = () => {
@@ -64,7 +64,7 @@ const App = () => {
           setShowOnboarding(true);
         }
 
-        dispatch({ type: 'SET_BOOKMARKS', payload: loadedBookmarks });
+        dispatch({ type: 'SET_BOOKMARKS', payload: sanitizeBookmarks(loadedBookmarks) });
         if (loadedSettings && Object.keys(loadedSettings).length > 0) {
           dispatch({ type: 'UPDATE_SETTINGS', payload: loadedSettings });
         }
@@ -84,13 +84,9 @@ const App = () => {
     if (!ui.isLoading) {
       saveToStorage(STORAGE_KEY, bookmarks);
 
-      // Auto Sync Logic
+      // Auto Sync Logic (debounced to avoid rate limit / write storms)
       if (syncManager.getStatus().enabled && !isSyncingRef.current && isOnlineStatus.isOnline) {
-        // Debounce inside logic handled by syncManager or manually?
-        // syncManager doesn't have debounce built-in for push, maybe we should rely on syncManager logic
-        // The previous app used SyncManager directly.
-        // For now, let's just call it. SyncManager might need improvement for debounce/throttle which implies Phase 3.
-        syncManager.pushToCloud(bookmarks, settings).catch(err => console.error("Auto sync failed", err));
+        syncManager.debouncedPush(bookmarks, settings, 2000);
       }
     }
   }, [bookmarks, ui.isLoading, settings, isOnlineStatus.isOnline]);

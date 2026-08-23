@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { SEARCH_ENGINES } from '../constants';
+import { AppSettings } from '../types';
 
 interface SearchWidgetProps {
-  searchEngine: string;
+  settings: AppSettings;
 }
 
-export const SearchWidget: React.FC<SearchWidgetProps> = ({ searchEngine }) => {
+export const SearchWidget: React.FC<SearchWidgetProps> = ({ settings }) => {
+  const searchEngine = settings.searchEngine;
   const [query, setQuery] = useState('');
 
   const onSearch = (e: React.FormEvent) => {

@@ -192,4 +192,5 @@ When contributing, please:
 
 - [GitHub Repository](https://github.com/aliveyang/WebNavigation)
 - [Vercel Deployment](https://your-project.vercel.app)
-- [Documentation](./README.md)
+- [Documentation](../../README.md)
+- [文档索引](../README.md)

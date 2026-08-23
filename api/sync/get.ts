@@ -1,6 +1,18 @@
 import { kv } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// 服务端限流：同一 IP 每分钟最多 20 次 GET，防止 PIN 枚举
+const RATE_LIMIT_WINDOW = 60; // 秒
+const RATE_LIMIT_MAX = 20;
+
+const getClientIp = (req: VercelRequest): string => {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string') {
+    return fwd.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || 'unknown';
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // 只允许 GET 请求
   if (req.method !== 'GET') {
@@ -13,6 +25,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 验证 PIN 码
     if (!pin || typeof pin !== 'string' || pin.length < 4) {
       return res.status(400).json({ error: 'Invalid PIN code' });
+    }
+
+    // 按 IP 限流
+    const ip = getClientIp(req);
+    const rateKey = `ratelimit:sync-get:${ip}`;
+    const count = await kv.incr(rateKey);
+    if (count === 1) {
+      await kv.expire(rateKey, RATE_LIMIT_WINDOW);
+    }
+    if (count > RATE_LIMIT_MAX) {
+      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     }
 
     // 从 KV 获取数据

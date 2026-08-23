@@ -74,7 +74,7 @@ export const imageUrlToBase64 = async (url: string): Promise<string> => {
 export { debounce, throttle, rafThrottle } from './performance';
 
 // Export storage utilities
-export { debouncedSaveToStorage, saveToStorage, loadFromStorage, storageBatcher, getStorageStats } from './storage';
+export { saveToStorage, loadFromStorage, getStorageStats } from './storage';
 
 // Export favicon cache
 export { faviconCache } from './faviconCache';
@@ -82,43 +82,28 @@ export { faviconCache } from './faviconCache';
 // Export image optimization utilities
 export {
   compressImage,
-  convertToWebP,
   validateImageSize,
   validateImageType,
-  getImageDimensions,
 } from './imageOptimization';
 
 // Export security utilities
 export {
   isSafeUrl,
   sanitizeUrl,
-  escapeHtml,
   isValidImageUrl,
   validateTitle,
   validateUrl,
   validatePin,
-  sanitizeText,
+  sanitizeBookmarks,
 } from './security';
 
 // Export crypto utilities
 export {
   hashPin,
-  verifyPin,
-  generateDeviceId,
-  generateSalt,
 } from './crypto';
 
 // Export rate limiter
 export {
   RateLimiter,
   syncRateLimiter,
-  apiRateLimiter,
 } from './rateLimit';
-
-// Export LRU cache
-export {
-  LRUCache,
-  LRUCacheWithTTL,
-  imageCache,
-  apiCache,
-} from './lruCache';
