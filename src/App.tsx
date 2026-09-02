@@ -12,7 +12,7 @@ import {
 import { Bookmark, AppSettings } from './types';
 import { STORAGE_KEY, SETTINGS_KEY } from './constants';
 import { syncManager } from './syncManager';
-import { saveToStorage, loadFromStorage, sanitizeBookmarks } from './utils';
+import { saveToStorage, sanitizeBookmarks } from './utils';
 import { useOnline, useIsMobile } from './hooks';
 
 const App = () => {
@@ -25,6 +25,8 @@ const App = () => {
   const isOnlineStatus = useOnline(); // Rename to avoid conflict if I used isOnline before
   const isMobile = useIsMobile();
   const isSyncingRef = useRef(false);
+  // 初始数据加载失败标志：阻断持久化与自动推送，防止空数据覆盖本地/云端（审计 B8）
+  const loadFailedRef = useRef(false);
 
   // Sync Status Subscription
   const [syncStatus, setSyncStatus] = useState(syncManager.getStatus());
@@ -54,9 +56,25 @@ const App = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load LocalStorage
-        const loadedBookmarks = loadFromStorage<Bookmark[]>(STORAGE_KEY, []);
-        const loadedSettings = loadFromStorage<AppSettings>(SETTINGS_KEY, {} as AppSettings);
+        const rawBookmarks = localStorage.getItem(STORAGE_KEY);
+        const rawSettings = localStorage.getItem(SETTINGS_KEY);
+
+        let loadedBookmarks: Bookmark[] = [];
+        let loadedSettings: Partial<AppSettings> = {};
+
+        // 显式解析以区分"无数据"与"数据损坏"（loadFromStorage 会吞掉解析错误返回默认值，
+        // 损坏数据若被当作空数组，会触发自动推送覆盖云端，审计 B8）
+        try {
+          if (rawBookmarks !== null) loadedBookmarks = JSON.parse(rawBookmarks);
+          if (rawSettings !== null) loadedSettings = JSON.parse(rawSettings);
+        } catch {
+          loadFailedRef.current = true;
+          showToast('Local data is corrupted. Cloud sync paused to protect your data.', 'error', 10000);
+        }
+
+        if (!Array.isArray(loadedBookmarks)) {
+          loadedBookmarks = [];
+        }
 
         // Check Onboarding
         const hasVisited = localStorage.getItem('navhub_has_visited');
@@ -69,8 +87,10 @@ const App = () => {
           dispatch({ type: 'UPDATE_SETTINGS', payload: loadedSettings });
         }
       } catch (e) {
+        // localStorage 不可用等异常：同样阻断自动推送（审计 B8）
         console.error("Failed to load data", e);
-        showToast('Failed to load local data', 'error');
+        loadFailedRef.current = true;
+        showToast('Failed to load local data. Cloud sync paused to protect your data.', 'error', 10000);
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
       }
@@ -82,6 +102,9 @@ const App = () => {
   // Save Bookmarks
   useEffect(() => {
     if (!ui.isLoading) {
+      // 初始加载失败后阻断持久化与自动推送，直到用户显式操作（审计 B8）
+      if (loadFailedRef.current) return;
+
       saveToStorage(STORAGE_KEY, bookmarks);
 
       // Auto Sync Logic (debounced to avoid rate limit / write storms)
@@ -94,9 +117,7 @@ const App = () => {
   // Save Settings & Apply Global Styles
   useEffect(() => {
     if (!ui.isLoading) {
-      saveToStorage(SETTINGS_KEY, settings);
-
-      // Apply Global Background Styles
+      // Apply Global Styles（样式应用不受加载失败影响，但持久化阻断，见 B8）
       if (settings.globalBgType === 'gradient' && settings.globalBgGradient) {
         document.body.style.background = '';
         document.body.className = `min-h-screen bg-gradient-to-br ${settings.globalBgGradient.from} ${settings.globalBgGradient.to} fixed inset-0`;
@@ -110,6 +131,9 @@ const App = () => {
         document.body.style.background = '';
         document.body.className = 'min-h-screen bg-slate-900 bg-[radial-gradient(circle_at_50%_0%,#1e293b_0%,#0f172a_70%)] fixed inset-0';
       }
+
+      if (loadFailedRef.current) return;
+      saveToStorage(SETTINGS_KEY, settings);
     }
   }, [settings, ui.isLoading]);
 

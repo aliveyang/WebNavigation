@@ -6,6 +6,7 @@ import {
     useSensor,
     useSensors,
     DragEndEvent,
+    DragStartEvent,
     TouchSensor,
     MouseSensor,
 } from '@dnd-kit/core';
@@ -52,8 +53,8 @@ export const BookmarkList: React.FC<BookmarkListProps> = ({
         })
     );
 
-    const handleDragStart = (event: any) => {
-        setActiveId(event.active.id);
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(String(event.active.id));
     };
 
     const handleDragEnd = (event: DragEndEvent) => {

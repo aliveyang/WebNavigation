@@ -53,13 +53,13 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             // 先检查云端是否有数据
             const storedBookmarks = localStorage.getItem(STORAGE_KEY);
             const storedSettings = localStorage.getItem(SETTINGS_KEY);
-            const localBookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
+            const localBookmarks: Bookmark[] = storedBookmarks ? JSON.parse(storedBookmarks) : [];
             const localSettings = storedSettings ? JSON.parse(storedSettings) : {};
 
             // 尝试拉取云端数据
             const cloudData = await syncManager.pullFromCloud();
 
-            let finalBookmarks = localBookmarks;
+            let finalBookmarks: Bookmark[] = localBookmarks;
             let finalSettings = localSettings;
 
             // 如果云端有数据且本地也有数据，让用户选择
@@ -94,13 +94,20 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
             // 更新本地存储（settings 落地前统一清洗，防缺字段/注入）
             const safeSettings = sanitizeSettings(finalSettings);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeBookmarks(finalBookmarks)));
+            const safeBookmarks = sanitizeBookmarks(finalBookmarks);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(safeBookmarks));
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(safeSettings));
 
+            // 标记落地数据已与云端一致，防止持久化 effect 把刚拉取的数据原样回推（审计 B6①）
+            await syncManager.markSynced(safeBookmarks, safeSettings);
+
             // 通过回调更新 React state
-            onSyncComplete(sanitizeBookmarks(finalBookmarks), safeSettings);
+            onSyncComplete(safeBookmarks, safeSettings);
             onClose();
         } catch (err) {
+            // 启用流程失败即回滚：避免停留在"已启用但未完成首次合并"的中间态，
+            // 否则后续自动同步会把未合并的本地数据推上云端（审计 B6③）
+            syncManager.disableSync();
             setError(err instanceof Error ? err.message : 'Failed to enable sync');
         } finally {
             setIsEnabling(false);
@@ -123,13 +130,13 @@ export const SyncModal: React.FC<SyncModalProps> = ({
         try {
             const storedBookmarks = localStorage.getItem(STORAGE_KEY);
             const storedSettings = localStorage.getItem(SETTINGS_KEY);
-            const localBookmarks = storedBookmarks ? JSON.parse(storedBookmarks) : [];
+            const localBookmarks: Bookmark[] = storedBookmarks ? JSON.parse(storedBookmarks) : [];
             const localSettings = storedSettings ? JSON.parse(storedSettings) : {};
 
             // 先拉取云端数据
             const cloudData = await syncManager.pullFromCloud();
 
-            let finalBookmarks = localBookmarks;
+            let finalBookmarks: Bookmark[] = localBookmarks;
             let finalSettings = localSettings;
             let needsPush = false;
 
@@ -176,7 +183,8 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
             // 更新本地数据（settings 落地前统一清洗，防缺字段/注入）
             const safeSettings = sanitizeSettings(finalSettings);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeBookmarks(finalBookmarks)));
+            const safeBookmarks = sanitizeBookmarks(finalBookmarks);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(safeBookmarks));
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(safeSettings));
 
             // 如果需要推送，在更新 state 之前推送
@@ -184,8 +192,11 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                 await syncManager.pushToCloud(localBookmarks, localSettings);
             }
 
+            // 标记落地数据已与云端一致，防止持久化 effect 把刚拉取的数据原样回推（审计 B6①）
+            await syncManager.markSynced(safeBookmarks, safeSettings);
+
             // 通过回调更新 React state
-            onSyncComplete(sanitizeBookmarks(finalBookmarks), safeSettings);
+            onSyncComplete(safeBookmarks, safeSettings);
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Sync failed');

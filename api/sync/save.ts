@@ -77,20 +77,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const now = Date.now();
 
-    // 保存到 KV
-    const promises = [];
-
+    // 保存到 KV。lastModified 必须最后写（"最后写"约定）：
+    // 客户端读到新时间戳时，数据必然已写入，避免"数据新、时间戳旧"的中间态（审计 B6/P7）
     if (bookmarks) {
-      promises.push(kv.set(`sync:${pin}:bookmarks`, bookmarks));
+      await kv.set(`sync:${pin}:bookmarks`, bookmarks);
     }
 
     if (settings) {
-      promises.push(kv.set(`sync:${pin}:settings`, settings));
+      await kv.set(`sync:${pin}:settings`, settings);
     }
 
-    promises.push(kv.set(`sync:${pin}:lastModified`, now));
-
-    await Promise.all(promises);
+    await kv.set(`sync:${pin}:lastModified`, now);
 
     return res.status(200).json({
       success: true,

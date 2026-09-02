@@ -51,6 +51,7 @@ export const SortableItem: React.FC<SortableItemProps> = ({
                 cardAppearanceConfig={settings.cardAppearanceConfig}
                 onLongPress={onLongPress}
                 onContextMenu={(e) => onContextMenu(e, bookmark)}
+                isDragActive={isDragging}
             />
         </div>
     );

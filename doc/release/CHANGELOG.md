@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version drift (F1): `package.json` aligned with CHANGELOG (was 1.1.0 vs 1.1.1).
 - Corrected inaccurate documentation claims about Vitest being configured (E1).
 
+### Reliability
+- **No more echo-push after pull (B6/P2-2)**: the sync manager keeps a content fingerprint of data confirmed identical to the cloud; pushes with the same fingerprint are skipped, so pulled data no longer bounces back to the server.
+- **Debounce race (B6)**: `debouncedPush` re-checks the syncing flag when the timer fires, avoiding concurrent push during a manual sync.
+- **Enable-sync rollback (B6)**: if the first merge after enabling sync fails, the enabled state is rolled back instead of leaving an "enabled but never merged" state that could overwrite cloud data.
+- **Load-failure guard (B8)**: corrupted/unreadable localStorage data no longer silently becomes an empty bookmark list that auto-sync would push over the cloud; persistence and auto-push are blocked and a visible error is shown.
+- **lastModified write order (P7)**: `api/sync/save` now writes `lastModified` after the data instead of in parallel.
+- **Drag cancels long-press (D1, part 1)**: activating a drag cancels the card's long-press timer, so the action menu can no longer pop up mid-drag.
+
 ## [1.1.1] - 2026-01-09
 
 ### Documentation

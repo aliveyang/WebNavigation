@@ -9,9 +9,10 @@ interface BookmarkCardProps {
   onLongPress: (item: Bookmark) => void;
   cardAppearanceConfig?: CardAppearanceConfig;
   onContextMenu?: (e: React.MouseEvent) => void;
+  isDragActive?: boolean;
 }
 
-const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, onLongPress, cardAppearanceConfig, onContextMenu }) => {
+const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, onLongPress, cardAppearanceConfig, onContextMenu, isDragActive }) => {
   const [isPressing, setIsPressing] = useState(false);
   const pressTimer = useRef<number | null>(null);
   const isLongPressTriggered = useRef(false);
@@ -34,6 +35,14 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
       pressTimer.current = null;
     }
   }, []);
+
+  // 拖拽激活时取消长按计时器：dnd 激活（移动端按住 1s）早于长按触发（2s），
+  // 不取消的话菜单会在拖拽进行中弹出（审计 D1）
+  useEffect(() => {
+    if (isDragActive) {
+      cancelPress();
+    }
+  }, [isDragActive, cancelPress]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (isLongPressTriggered.current) {
@@ -263,6 +272,7 @@ export const BookmarkCard = React.memo(BookmarkCardComponent, (prevProps, nextPr
     prevProps.cardAppearanceConfig?.iconSize === nextProps.cardAppearanceConfig?.iconSize &&
     prevProps.cardAppearanceConfig?.iconMarginTop === nextProps.cardAppearanceConfig?.iconMarginTop &&
     prevProps.cardAppearanceConfig?.textSize === nextProps.cardAppearanceConfig?.textSize &&
-    prevProps.cardAppearanceConfig?.textMarginTop === nextProps.cardAppearanceConfig?.textMarginTop
+    prevProps.cardAppearanceConfig?.textMarginTop === nextProps.cardAppearanceConfig?.textMarginTop &&
+    prevProps.isDragActive === nextProps.isDragActive
   );
 });

@@ -18,6 +18,8 @@ export interface SyncStatus {
 class SyncManager {
   private pinHash: string | null = null;
   private deviceId: string | null = null;
+  // 最近一次确认与云端一致的数据指纹（审计 B6/P2-2：内容未变则跳过推送）
+  private lastSyncedDataKey: string | null = null;
   private syncStatus: SyncStatus = {
     enabled: false,
     syncing: false,
@@ -108,6 +110,19 @@ class SyncManager {
     return () => this.listeners.delete(listener);
   }
 
+  // 计算数据指纹（书签+设置整体内容）
+  private async computeDataKey(bookmarks: unknown, settings: unknown): Promise<string> {
+    const encoded = new TextEncoder().encode(JSON.stringify({ bookmarks, settings }));
+    const digest = await crypto.subtle.digest('SHA-256', encoded);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // 标记当前数据已与云端一致（同步落地后调用）
+  // 防止落地数据触发持久化 effect 后被原样回推，浪费限流配额并前移 lastModified（审计 B6①）
+  async markSynced(bookmarks: unknown, settings: unknown): Promise<void> {
+    this.lastSyncedDataKey = await this.computeDataKey(bookmarks, settings);
+  }
+
   // 通知监听器
   private notifyListeners() {
     this.listeners.forEach(listener => listener(this.getStatus()));
@@ -173,6 +188,12 @@ class SyncManager {
       throw new Error('Sync not enabled');
     }
 
+    // 内容与云端已确认一致时跳过推送（P2-2 短路），节省限流配额
+    const dataKey = await this.computeDataKey(bookmarks, settings);
+    if (dataKey === this.lastSyncedDataKey) {
+      return;
+    }
+
     // 检查速率限制
     if (!syncRateLimiter.canMakeRequest()) {
       const remaining = syncRateLimiter.getRemainingRequests();
@@ -190,7 +211,7 @@ class SyncManager {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          pin: this.pinHash, // 使用哈希后的 PIN
+          pin: this.pinHash, // 使用派生密钥
           bookmarks,
           settings,
         }),
@@ -207,6 +228,7 @@ class SyncManager {
 
       this.syncStatus.lastSyncTime = result.lastModified;
       this.syncStatus.syncing = false;
+      this.lastSyncedDataKey = dataKey;
       this.notifyListeners();
 
       // 更新本地的 lastModified 为云端返回的时间戳
@@ -274,6 +296,8 @@ class SyncManager {
     }
 
     this.pushTimeout = setTimeout(() => {
+      // 执行时复查：防抖等待期间若开始了手动同步，放弃本次自动推送，避免并发写冲突（审计 B6②）
+      if (this.syncStatus.syncing) return;
       this.pushToCloud(bookmarks, settings).catch(console.error);
     }, delay);
   }
