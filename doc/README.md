@@ -9,7 +9,8 @@ WebNavigation/
 ├── doc/
 │   ├── README.md                   # ★ 本文档：索引总览
 │   ├── plans/                      # 方案类
-│   │   └── code-review-fix-plan.md # 代码审查修复方案（P1~P7）
+│   │   ├── code-review-fix-plan.md # 代码审查修复方案（P1~P7）
+│   │   └── audit-report-2026-09-02.md # 全量项目审计报告（基线 f6c104d）
 │   └── release/                    # 发布类
 │       └── CHANGELOG.md            # 版本变更记录（原根目录 CHANGELOG.md）
 └── README.md                       # 项目说明（面向用户）
@@ -33,6 +34,7 @@ WebNavigation/
 | 文档 | 说明 | 适用读者 |
 | --- | --- | --- |
 | [code-review-fix-plan.md](plans/code-review-fix-plan.md) | 2026-08-23 代码审查结论 → 分级修复方案（P1 安全 / P2 同步 / P3 XSS / P4 密钥 / P5 手势 / P6 死代码 / P7 杂项），含验收标准与实施顺序 | 开发者 / 维护者 |
+| [audit-report-2026-09-02.md](plans/audit-report-2026-09-02.md) | 2026-09-02 全量项目审计报告：P1~P7 修复状态逐项复核 + 新发现问题（安全/可靠性/性能/UX/工程化/文档治理，含分级与修复路线图），附 tsc/build/npm audit 验证证据 | 开发者 / 维护者 |
 
 ### 🚀 发布类（doc/release/）
 
