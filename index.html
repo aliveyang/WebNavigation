@@ -13,9 +13,9 @@
     <!-- Content Security Policy -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://aistudiocdn.com;
+      script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
       style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
-      img-src 'self' data: https: http:;
+      img-src 'self' data: https:;
       connect-src 'self' https://api.vercel.com https://*.vercel.com https://cdn.tailwindcss.com https://www.google.com https://registry.npmmirror.com;
       font-src 'self' data:;
       object-src 'none';
@@ -26,7 +26,6 @@
 
     <!-- Preconnect to CDN for better performance -->
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
-    <link rel="preconnect" href="https://aistudiocdn.com">
     <link rel="dns-prefetch" href="https://www.google.com">
 
     <link rel="manifest" href="/manifest.webmanifest">
@@ -86,15 +85,6 @@
             animation: shimmer 1.5s infinite;
         }
     </style>
-    <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/"
-  }
-}
-</script>
 </head>
 
 <body>

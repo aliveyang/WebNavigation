@@ -5,6 +5,8 @@
 import React, { createContext, useContext, useReducer, useCallback, ReactNode } from 'react';
 import { Bookmark, AppSettings, Language } from '../../types';
 import { ToastMessage, ToastType } from '../../components/ui';
+import { defaultSettings } from '../../constants/defaultSettings';
+import { sanitizeSettings } from '../../utils/settingsSanitize';
 
 // ============ State 类型定义 ============
 
@@ -56,20 +58,6 @@ export type AppAction =
 
 // ============ 初始状态 ============
 
-const defaultSettings: AppSettings = {
-    gridCols: 4,
-    searchEngine: 'google',
-    globalBgType: 'default',
-    globalBgGradient: { from: 'from-slate-900', to: 'to-slate-800' },
-    cardAppearanceConfig: {
-        iconSize: 24,
-        iconMarginTop: 2,
-        textSize: 8,
-        textMarginTop: 6,
-    },
-    language: 'zh',
-};
-
 const initialState: AppState = {
     bookmarks: [],
     settings: defaultSettings,
@@ -117,12 +105,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
             return { ...state, bookmarks: newBookmarks };
         }
 
-        // 设置操作
+        // 设置操作（落地前统一走白名单校验：云端/本地来源兜底，见 settingsSanitize）
         case 'UPDATE_SETTINGS':
-            return { ...state, settings: { ...state.settings, ...action.payload } };
+            return { ...state, settings: sanitizeSettings({ ...state.settings, ...action.payload }) };
 
         case 'SET_SETTINGS':
-            return { ...state, settings: action.payload };
+            return { ...state, settings: sanitizeSettings(action.payload) };
 
         // UI 操作
         case 'OPEN_EDIT_MODAL':

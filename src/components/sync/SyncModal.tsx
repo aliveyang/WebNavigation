@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { syncManager, type SyncStatus } from '../../syncManager';
 import { Bookmark, AppSettings, Language } from '../../types';
-import { validatePin, sanitizeBookmarks } from '../../utils';
+import { validatePin, sanitizeBookmarks, sanitizeSettings } from '../../utils';
 import { getTranslation } from '../../i18n';
 import { STORAGE_KEY, SETTINGS_KEY } from '../../constants';
 
@@ -92,12 +92,13 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                 await syncManager.pushToCloud(localBookmarks, localSettings);
             }
 
-            // 更新本地存储
+            // 更新本地存储（settings 落地前统一清洗，防缺字段/注入）
+            const safeSettings = sanitizeSettings(finalSettings);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeBookmarks(finalBookmarks)));
-            localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalSettings));
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(safeSettings));
 
             // 通过回调更新 React state
-            onSyncComplete(sanitizeBookmarks(finalBookmarks), finalSettings);
+            onSyncComplete(sanitizeBookmarks(finalBookmarks), safeSettings);
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to enable sync');
@@ -173,9 +174,10 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                 needsPush = true;
             }
 
-            // 更新本地数据
+            // 更新本地数据（settings 落地前统一清洗，防缺字段/注入）
+            const safeSettings = sanitizeSettings(finalSettings);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeBookmarks(finalBookmarks)));
-            localStorage.setItem(SETTINGS_KEY, JSON.stringify(finalSettings));
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(safeSettings));
 
             // 如果需要推送，在更新 state 之前推送
             if (needsPush) {
@@ -183,7 +185,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             }
 
             // 通过回调更新 React state
-            onSyncComplete(sanitizeBookmarks(finalBookmarks), finalSettings);
+            onSyncComplete(sanitizeBookmarks(finalBookmarks), safeSettings);
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Sync failed');
@@ -257,7 +259,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
                                 <button
                                     onClick={handleEnableSync}
-                                    disabled={isEnabling || pin.length < 4}
+                                    disabled={isEnabling || pin.length < 8}
                                     className="w-full px-4 py-3.5 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors shadow-lg shadow-blue-500/20"
                                 >
                                     {isEnabling ? getTranslation(language, 'enabling') : getTranslation(language, 'enableSync')}

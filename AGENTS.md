@@ -11,7 +11,7 @@ NavHub 是一个**移动优先的个人导航仪表板（起始页）**，以 PW
 
 | 项目名 | NavHub |
 | --- | --- |
-| 版本 | 1.1.0（`package.json` 为准；`SyncModal.tsx` 中的 `v1.1.0` 标签需同步维护） |
+| 版本 | 1.2.0（`package.json` 为准；`SyncModal.tsx` 经 `__APP_VERSION__` 自动读取，无需手动同步） |
 | 技术栈 | React 19 + TypeScript + Vite 6 + Tailwind CSS（CDN）+ @dnd-kit + Vercel KV |
 | 平台 | Web PWA；无 Node 服务端，API 为 Vercel Serverless Functions |
 | 包管理器 | npm（`package-lock.json` 锁定） |
@@ -78,7 +78,7 @@ WebNavigation/
 | --- | --- |
 | `navhub_bookmarks` | 书签数组 |
 | `navhub_settings` | 应用设置（列数、搜索引擎、背景、语言） |
-| `navhub_sync_pin_hash` | PIN 的 SHA-256 哈希（仅启用同步时存在） |
+| `navhub_sync_pin_hash` | PIN 派生密钥（PBKDF2-SHA256，仅启用同步时存在；旧版无盐 SHA-256 账户在启用同步时经 `/api/sync/migrate` 自动迁移） |
 | `navhub_device_id` / `navhub_last_modified` | 设备 ID / 云端最后修改时间戳 |
 | `navhub_has_visited` / `navhub_favicon_cache` | 引导标记（`'true'`）/ Favicon 缓存 |
 
@@ -104,7 +104,7 @@ WebNavigation/
 
 1. **URL 必须校验**：保存前 `validateUrl` + `sanitizeUrl`；从云端拉取的书签在渲染前也须校验（当前缺口 → P3）。
 2. **危险协议拦截**：`javascript:` / `data:` / `vbscript:` 一律拒绝。
-3. **PIN 安全**：只存哈希、不存明文；建议 ≥ 8 位（→ P1）。
+3. **PIN 安全**：只存派生密钥、不存明文；**最低 8 位**；云端凭据用 PBKDF2（`derivePinKey`）派生，禁止回退到无盐 SHA-256 直哈希。
 4. **服务端限流**：`api/sync/*` 必须有服务端限流，不能只依赖客户端（→ P1）。
 5. **CSP 一致性**：`index.html`（meta）与 `vercel.json`（headers）的 CSP 必须同步；新增外部域名两处都改。
 6. **密钥不注入前端**：任何密钥不得经 `vite.config.ts` 的 `define` 打进 bundle；第三方密钥一律放 Serverless Function（`api/*` 读 `process.env`）。
@@ -118,7 +118,7 @@ WebNavigation/
 | 新增搜索引擎 | `src/constants/searchEngines.ts` |
 | 新增/修改图标 | `src/constants/icons.ts` |
 | 新增翻译 | `src/i18n.ts`（en + zh 同时） |
-| 修改默认设置 | `AppContext.tsx` 的 `defaultSettings` |
+| 修改默认设置 | `src/constants/defaultSettings.ts`（AppContext 与 settingsSanitize 共用） |
 | 修改卡片手势/外观 | `src/components/BookmarkCard.tsx` |
 | 修改拖拽逻辑 | `src/components/bookmark/BookmarkList.tsx` + `SortableItem.tsx` |
 | 修改云同步 | `src/syncManager.ts` + `api/sync/*.ts` |
@@ -128,7 +128,7 @@ WebNavigation/
 
 ## 8. 测试与验证
 
-- Vitest 已配置（`vitest.config.ts`，jsdom 环境，setup 文件 `src/test/setup.ts`）；当前仓库**无任何测试文件**，新增逻辑时应补充单元测试并运行 `npx vitest run`。
+- **测试框架暂未配置**（Vitest 计划落地，见审计报告第三批）；当前验证基线：`npx tsc --noEmit` + `npm run build` + 手工验证清单。框架落地前，新增逻辑优先保持纯函数以便补测。
 - 手工验证清单：移动端长按/拖拽、PC 右键菜单、图片上传、云同步（启用/禁用/手动/冲突）、PWA 安装、离线。
 
 ---

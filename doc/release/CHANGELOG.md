@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-03
+
+### Security
+- **Cloud settings validation (B1/A2)**: settings pulled from cloud (or localStorage) now go through `sanitizeSettings` — deep-merged with defaults and whitelist-validated in the reducer, fixing the `undefined`-settings crash path and closing the CSS `url()` injection surface for `globalBgImage` / `globalBgGradient`.
+- **PIN hardening (A1)**: minimum PIN length raised from 4 to 8; sync credential is now a PBKDF2-SHA256 (150k iterations) derived key instead of an unsalted SHA-256 hash.
+- **Legacy account migration (A1)**: new `POST /api/sync/migrate` endpoint transparently moves legacy-keyed cloud data to the new derived key on sync enable; legacy keys are deleted after migration.
+- **Credential no longer in URL (A1)**: `GET /api/sync/get?pin=...` replaced by POST with the credential in the request body (GET kept only for backward compatibility with old clients).
+- **Save API hardening (A1)**: `api/sync/save` now enforces a 4MB body limit and validates payload structure (bookmarks array / settings object) before writing to KV.
+- **CSP cleanup (A3)**: removed the AI Studio importmap and the `aistudiocdn.com` script whitelist from both `index.html` and `vercel.json`; `img-src` narrowed to `https:`.
+- **Bookmark image sanitization (A2)**: `sanitizeBookmarks` now strips invalid `bgImage` values from synced bookmarks.
+
+### Fixed
+- Context menu listener leak (S8): the `contextmenu` listener in `ContextMenu.tsx` is now removed on cleanup.
+- `isValidImageUrl` false negatives (P7): image URLs without a file extension (e.g. CDN links) are now accepted; substring matching replaced by URL parsing.
+- Version drift (F1): `package.json` aligned with CHANGELOG (was 1.1.0 vs 1.1.1).
+- Corrected inaccurate documentation claims about Vitest being configured (E1).
+
 ## [1.1.1] - 2026-01-09
 
 ### Documentation
@@ -57,7 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Configuration
 - .eslintrc.json for code quality
 - .prettierrc.json for code formatting
-- vitest.config.ts for testing setup
 - vercel.json for Vercel deployment configuration
 
 ### Changed

@@ -100,7 +100,11 @@ export {
 // Export crypto utilities
 export {
   hashPin,
+  derivePinKey,
 } from './crypto';
+
+// Export settings sanitizer
+export { sanitizeSettings } from './settingsSanitize';
 
 // Export rate limiter
 export {

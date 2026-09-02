@@ -1,6 +1,6 @@
 // 同步管理模块
 import { syncRateLimiter } from './utils/rateLimit';
-import { hashPin } from './utils/crypto';
+import { hashPin, derivePinKey } from './utils/crypto';
 
 export interface SyncData {
   bookmarks: any[] | null;
@@ -59,16 +59,30 @@ class SyncManager {
 
   // 启用同步
   async enableSync(pin: string) {
-    if (pin.length < 4) {
-      throw new Error('PIN code must be at least 4 characters');
+    if (pin.length < 8) {
+      throw new Error('PIN code must be at least 8 characters');
     }
 
-    // 哈希 PIN 码
-    const pinHash = await hashPin(pin);
-    this.pinHash = pinHash;
+    // v2：PBKDF2 派生密钥作为云端凭据（审计 A1）
+    const pinKey = await derivePinKey(pin);
 
-    // 存储哈希后的 PIN
-    localStorage.setItem('navhub_sync_pin_hash', pinHash);
+    // 存量账户迁移：旧版以无盐 SHA-256(pin) 为云端 key。
+    // 该计算是确定性的，任何设备都能重算旧 key 并请求服务端把数据搬到新 key（幂等）。
+    try {
+      const legacyHash = await hashPin(pin);
+      await fetch('/api/sync/migrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPin: legacyHash, newPin: pinKey }),
+      });
+    } catch {
+      // 迁移失败不阻塞启用：旧数据仍在原 key，下次启用会重试
+    }
+
+    this.pinHash = pinKey;
+
+    // 存储派生后的密钥
+    localStorage.setItem('navhub_sync_pin_hash', pinKey);
     this.syncStatus.enabled = true;
     this.syncStatus.error = null;
     this.notifyListeners();
@@ -116,8 +130,14 @@ class SyncManager {
     this.notifyListeners();
 
     try {
-      // 使用哈希后的 PIN 作为键
-      const response = await fetch(`/api/sync/get?pin=${encodeURIComponent(this.pinHash)}`);
+      // 使用派生密钥作为键；经 POST body 传输，避免凭据进入 URL / 访问日志（审计 A1）
+      const response = await fetch('/api/sync/get', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pin: this.pinHash }),
+      });
 
       if (!response.ok) {
         if (response.status === 404) {

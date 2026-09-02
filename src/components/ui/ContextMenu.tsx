@@ -56,21 +56,23 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         // 滚动时关闭
         const handleScroll = () => onClose();
 
-        document.addEventListener('mousedown', handleClickOutside);
-        window.addEventListener('scroll', handleScroll, true);
-        window.addEventListener('resize', handleScroll);
-
-        // 阻止浏览器默认右键菜单
-        document.addEventListener('contextmenu', (e) => {
+        // 阻止菜单内右键弹出浏览器默认菜单（具名函数，确保 cleanup 移除，避免监听器泄漏）
+        const handleContextmenu = (e: MouseEvent) => {
             if (menuRef.current && menuRef.current.contains(e.target as Node)) {
                 e.preventDefault();
             }
-        });
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
+        window.addEventListener('resize', handleScroll);
+        document.addEventListener('contextmenu', handleContextmenu);
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
             window.removeEventListener('scroll', handleScroll, true);
             window.removeEventListener('resize', handleScroll);
+            document.removeEventListener('contextmenu', handleContextmenu);
         };
     }, [onClose]);
 

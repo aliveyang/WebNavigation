@@ -115,6 +115,7 @@ export const sanitizeUrl = (url: string): string => {
 
 /**
  * 验证图片 URL 是否安全
+ * 允许 base64 图片（严格校验 MIME）与 http(s) URL（协议白名单）
  */
 export const isValidImageUrl = (url: string): boolean => {
   if (!url) return false;
@@ -122,27 +123,18 @@ export const isValidImageUrl = (url: string): boolean => {
   // 允许 base64 图片
   if (url.startsWith('data:image/')) {
     // 验证 base64 格式
-    const base64Regex = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/i;
+    const base64Regex = /^data:image\/(jpeg|jpg|png|gif|webp);base64,[A-Za-z0-9+/=]+$/i;
     return base64Regex.test(url);
   }
 
-  // 验证 HTTP(S) URL
-  if (!isSafeUrl(url)) {
+  // 仅允许能被 URL 解析器接受的 http(s) 地址
+  // （此前按扩展名/域名子串匹配，会误拒无扩展名的图片直链，且 includes 匹配可被子串绕过）
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
     return false;
   }
-
-  // 检查图片扩展名或 MIME 类型
-  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-  const lowerUrl = url.toLowerCase();
-
-  // 检查 URL 是否包含图片扩展名
-  const hasImageExtension = imageExtensions.some(ext => lowerUrl.includes(ext));
-
-  // 或者是常见的图片服务域名
-  const imageServiceDomains = ['google.com/s2/favicons', 'imgur.com', 'cloudinary.com'];
-  const hasImageServiceDomain = imageServiceDomains.some(domain => lowerUrl.includes(domain));
-
-  return hasImageExtension || hasImageServiceDomain;
 };
 
 /**
@@ -205,10 +197,11 @@ export const validateUrl = (url: string): { valid: boolean; error?: string } => 
 
 /**
  * 验证 PIN 码
+ * 最低 8 位（安全红线 §6-3：4 位纯数字可被秒级枚举）
  */
 export const validatePin = (pin: string): { valid: boolean; error?: string } => {
-  if (!pin || pin.length < 4) {
-    return { valid: false, error: 'PIN must be at least 4 characters' };
+  if (!pin || pin.length < 8) {
+    return { valid: false, error: 'PIN must be at least 8 characters' };
   }
 
   if (pin.length > 20) {
@@ -226,15 +219,26 @@ export const validatePin = (pin: string): { valid: boolean; error?: string } => 
 /**
  * 清洗书签数组，确保所有 URL 都是安全的
  * 用于云端同步数据落地前校验（防 XSS）
+ * 同时清洗 bgImage：非法图片 URL 一律剥离，防止 CSS url() 注入（审计 A2）
  * @param bookmarks 书签数组
- * @returns 清洗后的书签数组（丢弃危险 URL 的书签）
+ * @returns 清洗后的书签数组（丢弃危险 URL 的书签、剥离非法 bgImage）
  */
-export const sanitizeBookmarks = <T extends { url: string }>(bookmarks: T[]): T[] => {
-  return bookmarks.filter((b) => {
+export const sanitizeBookmarks = <T extends { url: string; bgImage?: string }>(bookmarks: T[]): T[] => {
+  const result: T[] = [];
+  for (const bookmark of bookmarks) {
     try {
-      return isSafeUrl(sanitizeUrl(b.url));
+      // 危险协议一律丢弃（安全红线 §6-2）。注意 sanitizeUrl 会把 javascript: 改写为
+      // about:blank，若只看改写结果会被 isSafeUrl 的自定义协议放行分支保留下来
+      if (/^(javascript|data|vbscript):/i.test(bookmark.url.trim())) continue;
+      if (!isSafeUrl(sanitizeUrl(bookmark.url))) continue;
+      if (bookmark.bgImage !== undefined && !isValidImageUrl(bookmark.bgImage)) {
+        result.push({ ...bookmark, bgImage: undefined });
+      } else {
+        result.push(bookmark);
+      }
     } catch {
-      return false;
+      // 单条数据异常时跳过，不影响其余书签
     }
-  });
+  }
+  return result;
 };

@@ -5,6 +5,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const RATE_LIMIT_WINDOW = 60; // 秒
 const RATE_LIMIT_MAX = 20;
 
+// 凭据为 64 位十六进制哈希/派生密钥（旧版 SHA-256 与新版 PBKDF2 输出一致）
+const PIN_HASH_RE = /^[a-f0-9]{64}$/;
+
 const getClientIp = (req: VercelRequest): string => {
   const fwd = req.headers['x-forwarded-for'];
   if (typeof fwd === 'string') {
@@ -14,17 +17,17 @@ const getClientIp = (req: VercelRequest): string => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // 只允许 GET 请求
-  if (req.method !== 'GET') {
+  // POST（body 传凭据，避免进入访问日志）为主；GET 仅兼容未升级的旧客户端
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { pin } = req.query;
+    const pin = req.method === 'POST' ? (req.body || {}).pin : req.query.pin;
 
-    // 验证 PIN 码
-    if (!pin || typeof pin !== 'string' || pin.length < 4) {
-      return res.status(400).json({ error: 'Invalid PIN code' });
+    // 验证凭据格式
+    if (!pin || typeof pin !== 'string' || !PIN_HASH_RE.test(pin)) {
+      return res.status(400).json({ error: 'Invalid PIN credential' });
     }
 
     // 按 IP 限流
