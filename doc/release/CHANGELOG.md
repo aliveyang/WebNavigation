@@ -30,6 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **lastModified write order (P7)**: `api/sync/save` now writes `lastModified` after the data instead of in parallel.
 - **Drag cancels long-press (D1, part 1)**: activating a drag cancels the card's long-press timer, so the action menu can no longer pop up mid-drag.
 
+### Engineering
+- **ESLint enabled (E1)**: ESLint 10 + typescript-eslint with flat config (`eslint.config.js`), `npm run lint` script added; the dead `.eslintrc.json` (whose plugins were never installed) removed. Current status: 0 errors / 0 warnings.
+- **Vitest test framework (E1)**: `vitest.config.ts` + `npm test`; 56 unit tests covering `security.ts` (URL/PIN validation), `settingsSanitize`, `appReducer` and `syncManager` (fingerprint short-circuit, migration, POST credential).
+- **`tsconfig.strict` enabled (E2)**: all remaining `any` usages eliminated — sync data structures now typed as `Bookmark[]` / `Partial<AppSettings>`, `settings: AppSettings` on SortableItem, typed reducer extraction (`src/store/context/appReducer.ts`).
+- **CSP policy documented (F2)**: `vercel.json` is authoritative (the header is what deployment enforces); meta tag is for local dev; known allowed differences documented in AGENTS.md §7.
+- Dead code removed while linting: `utils/performance.ts` (unused debounce/throttle/rafThrottle), storage `cleanupOldData`/`getStorageStats`, unused `RateLimitConfig`, unused Header/BookmarkCard props, dead `activeId` state in BookmarkList.
+- setState-in-effect and ref-during-render patterns fixed (react-hooks v7 rules): form resets now use the render-phase reset pattern; toast timer/dismiss ordering fixed.
+
 ## [1.1.1] - 2026-01-09
 
 ### Documentation

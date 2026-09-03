@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import {
     DndContext,
     closestCenter,
@@ -6,12 +6,10 @@ import {
     useSensor,
     useSensors,
     DragEndEvent,
-    DragStartEvent,
     TouchSensor,
     MouseSensor,
 } from '@dnd-kit/core';
 import {
-    arrayMove,
     SortableContext,
     sortableKeyboardCoordinates,
     rectSortingStrategy,
@@ -34,8 +32,6 @@ export const BookmarkList: React.FC<BookmarkListProps> = ({
     onLongPress,
     onContextMenu,
 }) => {
-    const [activeId, setActiveId] = useState<string | null>(null);
-
     const sensors = useSensors(
         useSensor(MouseSensor, {
             activationConstraint: {
@@ -53,13 +49,8 @@ export const BookmarkList: React.FC<BookmarkListProps> = ({
         })
     );
 
-    const handleDragStart = (event: DragStartEvent) => {
-        setActiveId(String(event.active.id));
-    };
-
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
-        setActiveId(null);
 
         if (over && active.id !== over.id) {
             const oldIndex = bookmarks.findIndex((b) => b.id === active.id);
@@ -68,17 +59,11 @@ export const BookmarkList: React.FC<BookmarkListProps> = ({
         }
     };
 
-    const handleDragCancel = () => {
-        setActiveId(null);
-    };
-
     return (
         <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
         >
             <SortableContext
                 items={bookmarks.map(b => b.id)}

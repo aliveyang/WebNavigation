@@ -1,7 +1,6 @@
 import React from 'react';
 import { useOnline } from '../../hooks';
 import { Language } from '../../types';
-import { getTranslation } from '../../i18n';
 
 interface NetworkIndicatorProps {
     language: Language;

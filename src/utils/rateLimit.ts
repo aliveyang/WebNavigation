@@ -3,11 +3,6 @@
  * 用于限制 API 调用频率，防止滥用
  */
 
-interface RateLimitConfig {
-  maxRequests: number;  // 最大请求数
-  timeWindow: number;   // 时间窗口（毫秒）
-}
-
 class RateLimiter {
   private requests: number[] = [];
   private maxRequests: number;

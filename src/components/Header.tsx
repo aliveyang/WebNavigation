@@ -1,19 +1,11 @@
 import React from 'react';
 import { AppSettings } from '../types';
-import { getTranslation } from '../i18n';
 
 interface HeaderProps {
   settings: AppSettings;
-  onOpenSettings: () => void;
-  onOpenSync: () => void;
-  syncStatus?: {
-    enabled: boolean;
-    syncing: boolean;
-    error: string | null;
-  };
 }
 
-export const Header: React.FC<HeaderProps> = ({ settings, onOpenSettings, onOpenSync, syncStatus }) => {
+export const Header: React.FC<HeaderProps> = ({ settings }) => {
   return (
     <header className="flex items-center justify-between px-6 py-6 w-full animate-in fade-in slide-in-from-top-4 duration-500">
       {/* Date Display (Left) */}

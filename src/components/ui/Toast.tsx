@@ -18,6 +18,13 @@ const ToastItem: React.FC<ToastProps> = ({ toast, onDismiss }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
 
+    const handleDismiss = useCallback(() => {
+        setIsExiting(true);
+        setTimeout(() => {
+            onDismiss(toast.id);
+        }, 300); // 动画时长
+    }, [onDismiss, toast.id]);
+
     useEffect(() => {
         // 触发进入动画
         requestAnimationFrame(() => setIsVisible(true));
@@ -28,14 +35,7 @@ const ToastItem: React.FC<ToastProps> = ({ toast, onDismiss }) => {
         }, toast.duration || 3000);
 
         return () => clearTimeout(timer);
-    }, [toast.duration]);
-
-    const handleDismiss = useCallback(() => {
-        setIsExiting(true);
-        setTimeout(() => {
-            onDismiss(toast.id);
-        }, 300); // 动画时长
-    }, [onDismiss, toast.id]);
+    }, [toast.duration, handleDismiss]);
 
     const iconMap: Record<ToastType, React.ReactNode> = {
         success: (

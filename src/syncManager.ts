@@ -1,10 +1,11 @@
 // 同步管理模块
 import { syncRateLimiter } from './utils/rateLimit';
 import { hashPin, derivePinKey } from './utils/crypto';
+import { Bookmark, AppSettings } from './types';
 
 export interface SyncData {
-  bookmarks: any[] | null;
-  settings: any | null;
+  bookmarks: Bookmark[] | null;
+  settings: Partial<AppSettings> | null;
   lastModified: number | null;
 }
 
@@ -183,7 +184,7 @@ class SyncManager {
   }
 
   // 推送数据到云端
-  async pushToCloud(bookmarks: any[], settings: any): Promise<void> {
+  async pushToCloud(bookmarks: Bookmark[], settings: Partial<AppSettings>): Promise<void> {
     if (!this.pinHash) {
       throw new Error('Sync not enabled');
     }
@@ -242,7 +243,11 @@ class SyncManager {
   }
 
   // 双向同步
-  async sync(localBookmarks: any[], localSettings: any, isFirstSync: boolean = false): Promise<{ bookmarks: any[], settings: any }> {
+  async sync(
+    localBookmarks: Bookmark[],
+    localSettings: Partial<AppSettings>,
+    isFirstSync: boolean = false
+  ): Promise<{ bookmarks: Bookmark[]; settings: Partial<AppSettings> }> {
     if (!this.pinHash) {
       throw new Error('Sync not enabled');
     }
@@ -290,7 +295,7 @@ class SyncManager {
   // 防抖推送
   private pushTimeout: NodeJS.Timeout | null = null;
 
-  debouncedPush(bookmarks: any[], settings: any, delay: number = 1000) {
+  debouncedPush(bookmarks: Bookmark[], settings: Partial<AppSettings>, delay: number = 1000) {
     if (this.pushTimeout) {
       clearTimeout(this.pushTimeout);
     }

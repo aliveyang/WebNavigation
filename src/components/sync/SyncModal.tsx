@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { syncManager, type SyncStatus } from '../../syncManager';
+import React, { useState } from 'react';
+import { syncManager } from '../../syncManager';
 import { Bookmark, AppSettings, Language } from '../../types';
 import { validatePin, sanitizeBookmarks, sanitizeSettings } from '../../utils';
 import { getTranslation } from '../../i18n';
@@ -25,13 +25,14 @@ export const SyncModal: React.FC<SyncModalProps> = ({
     const [error, setError] = useState('');
     const syncStatus = syncManager.getStatus();
 
-    useEffect(() => {
-        if (isOpen) {
-            setPin('');
-            setError('');
-            setIsEnabling(false);
-        }
-    }, [isOpen]);
+    // 弹窗打开时重置表单（渲染期 props 变化重置模式，避免 setState-in-effect）
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+    if (isOpen !== prevIsOpen) {
+        setPrevIsOpen(isOpen);
+        setPin('');
+        setError('');
+        setIsEnabling(false);
+    }
 
     if (!isOpen) return null;
 
@@ -64,8 +65,8 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
             // 如果云端有数据且本地也有数据，让用户选择
             if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
-                const cloudTitles = cloudData.bookmarks.map((b: any) => `  • ${b.title}`).join('\n');
-                const localTitles = localBookmarks.map((b: any) => `  • ${b.title}`).join('\n');
+                const cloudTitles = cloudData.bookmarks.map((b) => `  • ${b.title}`).join('\n');
+                const localTitles = localBookmarks.map((b) => `  • ${b.title}`).join('\n');
 
                 const choice = confirm(
                     `Both cloud and local have bookmarks:\n\n` +
@@ -143,13 +144,13 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             // 如果云端有数据且本地也有数据，检查是否需要用户选择
             if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
                 // 比较书签内容（通过 JSON 字符串比较）
-                const cloudBookmarksStr = JSON.stringify(cloudData.bookmarks.map((b: any) => ({ id: b.id, title: b.title, url: b.url })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
-                const localBookmarksStr = JSON.stringify(localBookmarks.map((b: any) => ({ id: b.id, title: b.title, url: b.url })).sort((a: any, b: any) => a.id.localeCompare(b.id)));
+                const cloudBookmarksStr = JSON.stringify(cloudData.bookmarks.map((b) => ({ id: b.id, title: b.title, url: b.url })).sort((a, b) => a.id.localeCompare(b.id)));
+                const localBookmarksStr = JSON.stringify(localBookmarks.map((b) => ({ id: b.id, title: b.title, url: b.url })).sort((a, b) => a.id.localeCompare(b.id)));
 
                 // 如果内容不同，让用户选择
                 if (cloudBookmarksStr !== localBookmarksStr) {
-                    const cloudTitles = cloudData.bookmarks.map((b: any) => `  • ${b.title}`).join('\n');
-                    const localTitles = localBookmarks.map((b: any) => `  • ${b.title}`).join('\n');
+                    const cloudTitles = cloudData.bookmarks.map((b) => `  • ${b.title}`).join('\n');
+                    const localTitles = localBookmarks.map((b) => `  • ${b.title}`).join('\n');
 
                     const choice = confirm(
                         `Sync conflict detected!\n\n` +

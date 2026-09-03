@@ -14,7 +14,7 @@ export function useOnline(): OnlineStatus {
     const [status, setStatus] = useState<OnlineStatus>({
         isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
         wasOffline: false,
-        lastOnlineTime: Date.now(),
+        lastOnlineTime: null, // 首次上线时间由 online 事件回填（渲染期不可调用 Date.now）
     });
 
     const handleOnline = useCallback(() => {

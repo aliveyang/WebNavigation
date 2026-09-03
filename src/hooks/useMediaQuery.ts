@@ -24,9 +24,8 @@ export function useMediaQuery(query: string): boolean {
             mediaQuery.addListener(handler);
         }
 
-        // 确保初始状态正确
-        setMatches(mediaQuery.matches);
-
+        // 初始正确性由 useState 惰性初始化保证；
+        // 调用方均使用常量 query（useIsMobile 等），无需在 effect 中同步 setState
         return () => {
             if (mediaQuery.removeEventListener) {
                 mediaQuery.removeEventListener('change', handler);

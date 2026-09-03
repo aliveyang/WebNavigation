@@ -74,13 +74,16 @@ interface OnboardingGuideProps {
 export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose, language }) => {
     const [currentStep, setCurrentStep] = useState(0);
 
+    // 弹窗打开时重置步骤（渲染期 props 变化重置模式，避免 setState-in-effect）
+    const [prevIsOpen, setPrevIsOpen] = useState<boolean | null>(null);
+    if (isOpen !== prevIsOpen) {
+        setPrevIsOpen(isOpen);
+        if (isOpen) setCurrentStep(0);
+    }
+
+    // 锁定/恢复页面滚动（副作用，非状态同步）
     useEffect(() => {
-        if (isOpen) {
-            setCurrentStep(0);
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
+        document.body.style.overflow = isOpen ? 'hidden' : '';
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 

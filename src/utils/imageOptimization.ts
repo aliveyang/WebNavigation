@@ -89,7 +89,7 @@ export const compressImage = async (
           } else {
             resolve(compressed);
           }
-        } catch (error) {
+        } catch {
           reject(new Error('Failed to compress image'));
         }
       };

@@ -26,10 +26,12 @@ npm install          # 安装依赖
 npm run dev          # 开发服务器 http://localhost:5173
 npm run build        # 生产构建（输出 dist/）
 npm run preview      # 预览生产构建
-npx tsc --noEmit     # 类型检查
+npm run lint         # ESLint 检查（flat config）
+npm test             # Vitest 单测（vitest run）
+npx tsc --noEmit     # 类型检查（strict 已开启）
 ```
 
-**每次改动后必做**：`npx tsc --noEmit` 通过；涉及构建配置时跑 `npm run build`。
+**每次改动后必做**：`npm run lint`、`npm test`、`npx tsc --noEmit` 全部通过；涉及构建配置时跑 `npm run build`。
 本地 `api/` 需 `vercel dev` 才能运行；`vite dev` 下 `/api/sync/*` 会 404（属预期）。
 
 ---
@@ -38,8 +40,10 @@ npx tsc --noEmit     # 类型检查
 
 ```
 WebNavigation/
-├── index.html              # HTML 入口：CSP、Tailwind CDN、importmap
+├── index.html              # HTML 入口：CSP、Tailwind CDN
 ├── index.tsx               # React 挂载入口
+├── eslint.config.js        # ESLint flat config
+├── vitest.config.ts        # Vitest 配置（node 环境）
 ├── AGENTS.md / CLAUDE.md   # ★ 本规范（硬链接）
 ├── src/
 │   ├── App.tsx             # 应用外壳：状态加载/持久化/自动同步/模态框组装
@@ -90,13 +94,13 @@ WebNavigation/
 
 | 维度 | 规则 |
 | --- | --- |
-| 类型安全 | 所有模块有 TS 类型；**禁止新增 `any`**（现有 `any` 属已知技术债）；props 显式 interface |
+| 类型安全 | 所有模块有 TS 类型；**禁止 `any`**（存量已清零，`tsconfig.strict` + lint 强制）；props 显式 interface |
 | 状态管理 | 全局状态经 `useApp()` / `useBookmarks` / `useSettings` / `useUI` / `useToasts` 访问；新增 action 须同步扩展 `AppAction` + reducer + `actions` |
 | 国际化 | 用户可见文案必须 en+zh 双语（`src/i18n.ts`）；用 `getTranslation(language, 'key')`；**禁止硬编码文案**（`BookmarkCard.tsx` 等遗留硬编码属技术债，新代码遵守） |
 | 样式 | Tailwind 原子类；**禁止新增 CSS 文件或样式库**；深色主题（`bg-slate-900` 底、`blue-600` 强调、`red-400` 危险色）；动画用 `animate-in` 系列 |
 | 组件 | 函数组件 + Hooks；回调 `useCallback`、派生值 `useMemo`；列表项用 `React.memo` + 自定义比较；浮层用 `createPortal` 到 `document.body` |
 | 命名 | 组件 `PascalCase.tsx`；hooks `useXxx.ts`；工具 `camelCase.ts` |
-| 质量 | 生产构建 terser 压缩、移除 `console.*`；防御性代码优先，避免冗余抽象（YAGNI） |
+| 质量 | 提交前 `npm run lint` + `npm test` + `npx tsc --noEmit` 全绿；生产构建 terser 压缩、移除 `console.*`；防御性代码优先，避免冗余抽象（YAGNI） |
 
 ---
 
@@ -122,14 +126,16 @@ WebNavigation/
 | 修改卡片手势/外观 | `src/components/BookmarkCard.tsx` |
 | 修改拖拽逻辑 | `src/components/bookmark/BookmarkList.tsx` + `SortableItem.tsx` |
 | 修改云同步 | `src/syncManager.ts` + `api/sync/*.ts` |
-| 修改 CSP/部署头 | `index.html` 与 `vercel.json` **两边同步改** |
+| 修改 CSP/部署头 | `index.html` 与 `vercel.json` **两边同步改**。一致性策略（F2）：**vercel.json 为权威**（部署后实际生效的是 header 版），meta 版仅供本地 dev 生效。允许的已知差异：header 版多 `frame-ancestors 'none'`（meta 中本就不生效）；meta 版 `connect-src` 含 `registry.npmmirror.com`/`www.google.com` 供 dev 场景。新增外部域名时若与部署相关，两处都改 |
 
 ---
 
 ## 8. 测试与验证
 
-- **测试框架暂未配置**（Vitest 计划落地，见审计报告第三批）；当前验证基线：`npx tsc --noEmit` + `npm run build` + 手工验证清单。框架落地前，新增逻辑优先保持纯函数以便补测。
-- 手工验证清单：移动端长按/拖拽、PC 右键菜单、图片上传、云同步（启用/禁用/手动/冲突）、PWA 安装、离线。
+- **测试框架**：Vitest（`vitest.config.ts`，node 环境，测试文件 `src/**/*.test.ts`），运行 `npm test`。
+- **现有覆盖**：`utils/security.test.ts`（URL/PIN 校验、清洗）、`utils/settingsSanitize.test.ts`（设置白名单）、`store/context/appReducer.test.ts`（reducer）、`syncManager.test.ts`（同步指纹短路/migrate，stub localStorage/fetch）。
+- **新增逻辑优先保持纯函数并补测试**；纯 UI 交互以手工清单兜底。
+- **手工验证清单**：移动端长按/拖拽、PC 右键菜单、图片上传、云同步（启用/禁用/手动/冲突）、PWA 安装、离线。
 
 ---
 

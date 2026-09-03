@@ -5,22 +5,25 @@ import { getFaviconUrl } from '../utils';
 
 interface BookmarkCardProps {
   item: Bookmark;
-  gridCols: number;
   onLongPress: (item: Bookmark) => void;
   cardAppearanceConfig?: CardAppearanceConfig;
   onContextMenu?: (e: React.MouseEvent) => void;
   isDragActive?: boolean;
 }
 
-const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, onLongPress, cardAppearanceConfig, onContextMenu, isDragActive }) => {
+const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, onLongPress, cardAppearanceConfig, onContextMenu, isDragActive }) => {
   const [isPressing, setIsPressing] = useState(false);
   const pressTimer = useRef<number | null>(null);
   const isLongPressTriggered = useRef(false);
+  // isDragActive 的镜像：供长按计时器回调读取（在 effect 中同步，渲染期不触碰 ref）
+  const dragActiveRef = useRef(false);
 
   const startPress = useCallback(() => {
     isLongPressTriggered.current = false;
     setIsPressing(true);
     pressTimer.current = window.setTimeout(() => {
+      // 拖拽已激活时不再弹出长按菜单（审计 D1）
+      if (dragActiveRef.current) return;
       isLongPressTriggered.current = true;
       setIsPressing(false);
       if (navigator.vibrate) navigator.vibrate(50);
@@ -37,12 +40,18 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
   }, []);
 
   // 拖拽激活时取消长按计时器：dnd 激活（移动端按住 1s）早于长按触发（2s），
-  // 不取消的话菜单会在拖拽进行中弹出（审计 D1）
+  // 不取消的话菜单会在拖拽进行中弹出（审计 D1）。
+  // 仅同步外部系统状态并清理定时器资源，不调用 setState（react-hooks/set-state-in-effect）
   useEffect(() => {
-    if (isDragActive) {
-      cancelPress();
+    dragActiveRef.current = isDragActive === true;
+    if (dragActiveRef.current && pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
     }
-  }, [isDragActive, cancelPress]);
+  }, [isDragActive]);
+
+  // 拖拽进行中不展示按压进度条（由 props 派生，无需额外状态）
+  const showPressing = isPressing && isDragActive !== true;
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (isLongPressTriggered.current) {
@@ -87,9 +96,9 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
     shadow-lg transform transition-all duration-300
     border border-white/10 select-none
     ${(bgType === 'gradient' || isLibrary) ? `bg-gradient-to-br ${item.colorFrom} ${item.colorTo}` : 'bg-slate-800'}
-    ${isPressing ? 'scale-95 brightness-90' : 'active:scale-95 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10'}
+    ${showPressing ? 'scale-95 brightness-90' : 'active:scale-95 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10'}
     ${isMobile ? 'touch-manipulation' : ''}
-  `, [bgType, isLibrary, item.colorFrom, item.colorTo, isPressing, isMobile]);
+  `, [bgType, isLibrary, item.colorFrom, item.colorTo, showPressing, isMobile]);
 
   const faviconUrl = useMemo(() => getFaviconUrl(item.url), [item.url]);
 
@@ -119,9 +128,9 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, gridCols, on
         style={getBackgroundStyle}
         draggable={false}
       >
-        {isPressing && (
+        {showPressing && (
           <div className="absolute inset-0 bg-black/20 z-20 pointer-events-none">
-            <div className="absolute bottom-0 left-0 h-1 bg-white/50 transition-all duration-[1500ms] ease-linear w-full" style={{ width: isPressing ? '100%' : '0%' }} />
+            <div className="absolute bottom-0 left-0 h-1 bg-white/50 transition-all duration-[1500ms] ease-linear w-full" style={{ width: showPressing ? '100%' : '0%' }} />
           </div>
         )}
 
@@ -268,7 +277,6 @@ export const BookmarkCard = React.memo(BookmarkCardComponent, (prevProps, nextPr
     prevProps.item.iconKey === nextProps.item.iconKey &&
     prevProps.item.colorFrom === nextProps.item.colorFrom &&
     prevProps.item.colorTo === nextProps.item.colorTo &&
-    prevProps.gridCols === nextProps.gridCols &&
     prevProps.cardAppearanceConfig?.iconSize === nextProps.cardAppearanceConfig?.iconSize &&
     prevProps.cardAppearanceConfig?.iconMarginTop === nextProps.cardAppearanceConfig?.iconMarginTop &&
     prevProps.cardAppearanceConfig?.textSize === nextProps.cardAppearanceConfig?.textSize &&

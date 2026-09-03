@@ -28,9 +28,6 @@ const App = () => {
   // 初始数据加载失败标志：阻断持久化与自动推送，防止空数据覆盖本地/云端（审计 B8）
   const loadFailedRef = useRef(false);
 
-  // Sync Status Subscription
-  const [syncStatus, setSyncStatus] = useState(syncManager.getStatus());
-
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
@@ -40,17 +37,6 @@ const App = () => {
 
   // Onboarding State
   const [showOnboarding, setShowOnboarding] = useState(false);
-
-  useEffect(() => {
-    // 初始状态
-    setSyncStatus(syncManager.getStatus());
-
-    // 订阅状态变化
-    const unsubscribe = syncManager.onStatusChange((status) => {
-      setSyncStatus(status);
-    });
-    return () => { unsubscribe(); };
-  }, []);
 
   // --- Initial Load ---
   useEffect(() => {
@@ -96,7 +82,7 @@ const App = () => {
       }
     };
     loadData();
-  }, [dispatch]);
+  }, [dispatch, showToast]);
 
   // --- Persistence & Auto Sync ---
   // Save Bookmarks
@@ -187,9 +173,6 @@ const App = () => {
       <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10 flex flex-col min-h-screen">
         <Header
           settings={settings}
-          onOpenSettings={actions.openSettingsModal}
-          onOpenSync={actions.openSyncModal}
-          syncStatus={syncStatus}
         />
 
         <div className="flex-1 flex flex-col justify-center max-w-4xl mx-auto w-full">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Bookmark, BackgroundType, AppSettings } from '../../types';
 import { PRESET_ICONS, getRandomGradient } from '../../constants';
 import {
@@ -9,7 +9,7 @@ import {
     getFaviconUrl,
     compressImage,
 } from '../../utils';
-import { getTranslation } from '../../i18n';
+import { getTranslation, type Translations } from '../../i18n';
 
 interface BookmarkEditModalProps {
     isOpen: boolean;
@@ -33,7 +33,10 @@ export const BookmarkEditModal: React.FC<BookmarkEditModalProps> = ({
     const [iconKey, setIconKey] = useState('home');
     const [colors, setColors] = useState(getRandomGradient());
 
-    useEffect(() => {
+    // 弹窗打开时初始化表单（渲染期 props 变化重置模式，避免 setState-in-effect）
+    const [prevIsOpen, setPrevIsOpen] = useState<boolean | null>(null);
+    if (isOpen !== prevIsOpen) {
+        setPrevIsOpen(isOpen);
         if (isOpen) {
             if (initialData) {
                 setTitle(initialData.title);
@@ -51,7 +54,7 @@ export const BookmarkEditModal: React.FC<BookmarkEditModalProps> = ({
                 setColors(getRandomGradient());
             }
         }
-    }, [isOpen, initialData]);
+    }
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -171,7 +174,7 @@ export const BookmarkEditModal: React.FC<BookmarkEditModalProps> = ({
                                             : 'text-slate-500 hover:text-slate-300'
                                         }`}
                                 >
-                                    {getTranslation(appSettings.language, tab.id as any)}
+                                    {getTranslation(appSettings.language, tab.id as keyof Translations)}
                                 </button>
                             ))}
                         </div>

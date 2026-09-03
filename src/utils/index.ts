@@ -23,7 +23,7 @@ export const getFaviconUrl = (url: string) => {
     faviconCache.set(domain, faviconUrl);
 
     return faviconUrl;
-  } catch (e) {
+  } catch {
     return '';
   }
 };
@@ -70,11 +70,8 @@ export const imageUrlToBase64 = async (url: string): Promise<string> => {
   });
 };
 
-// Export performance utilities
-export { debounce, throttle, rafThrottle } from './performance';
-
 // Export storage utilities
-export { saveToStorage, loadFromStorage, getStorageStats } from './storage';
+export { saveToStorage, loadFromStorage } from './storage';
 
 // Export favicon cache
 export { faviconCache } from './faviconCache';

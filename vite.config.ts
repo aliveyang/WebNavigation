@@ -148,7 +148,7 @@ export default defineConfig(({ mode }) => {
               // 将 React 相关库打包到一起
               'react-vendor': ['react', 'react-dom'],
               // 将工具函数打包到一起
-              'utils': ['./src/utils/index.ts', './src/utils/performance.ts', './src/utils/imageOptimization.ts'],
+              'utils': ['./src/utils/index.ts', './src/utils/imageOptimization.ts'],
               // 将常量打包到一起
               'constants': ['./src/constants/index.ts'],
             },

@@ -1,13 +1,13 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Bookmark } from '../../types';
+import { Bookmark, AppSettings } from '../../types';
 import { BookmarkCard } from '../BookmarkCard';
 
 interface SortableItemProps {
     id: string;
     bookmark: Bookmark;
-    settings: any;
+    settings: AppSettings;
     onLongPress: (bookmark: Bookmark) => void;
     onContextMenu: (e: React.MouseEvent, bookmark: Bookmark) => void;
     isDragging?: boolean;
@@ -47,7 +47,6 @@ export const SortableItem: React.FC<SortableItemProps> = ({
         >
             <BookmarkCard
                 item={bookmark}
-                gridCols={settings.gridCols}
                 cardAppearanceConfig={settings.cardAppearanceConfig}
                 onLongPress={onLongPress}
                 onContextMenu={(e) => onContextMenu(e, bookmark)}
