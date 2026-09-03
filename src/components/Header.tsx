@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppSettings } from '../types';
 
 interface HeaderProps {
@@ -6,6 +6,14 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ settings }) => {
+  // 时钟驱动：每 60s 强制重渲染一次，让日期/时间随真实时间更新（审计 B2）
+  const [, setClockTick] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockTick((t) => t + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   return (
     <header className="flex items-center justify-between px-6 py-6 w-full animate-in fade-in slide-in-from-top-4 duration-500">
       {/* Date Display (Left) */}

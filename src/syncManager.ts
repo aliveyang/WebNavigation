@@ -18,7 +18,6 @@ export interface SyncStatus {
 
 class SyncManager {
   private pinHash: string | null = null;
-  private deviceId: string | null = null;
   // 最近一次确认与云端一致的数据指纹（审计 B6/P2-2：内容未变则跳过推送）
   private lastSyncedDataKey: string | null = null;
   private syncStatus: SyncStatus = {
@@ -37,27 +36,14 @@ class SyncManager {
   // 加载同步配置
   private loadConfig() {
     const pinHash = localStorage.getItem('navhub_sync_pin_hash');
-    const deviceId = localStorage.getItem('navhub_device_id');
 
     if (pinHash) {
       this.pinHash = pinHash;
       this.syncStatus.enabled = true;
     }
 
-    if (!deviceId) {
-      // 生成设备 ID
-      const newDeviceId = this.generateDeviceId();
-      localStorage.setItem('navhub_device_id', newDeviceId);
-      this.deviceId = newDeviceId;
-    } else {
-      this.deviceId = deviceId;
-    }
-  }
-
-  // 生成设备 ID
-  private generateDeviceId(): string {
-    return 'device_' + Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15);
+    // 清理已废弃的 navhub_device_id（旧版生成后从未使用，审计 E3）
+    localStorage.removeItem('navhub_device_id');
   }
 
   // 启用同步
@@ -239,56 +225,6 @@ class SyncManager {
       this.syncStatus.error = error instanceof Error ? error.message : 'Sync failed';
       this.notifyListeners();
       throw error;
-    }
-  }
-
-  // 双向同步
-  async sync(
-    localBookmarks: Bookmark[],
-    localSettings: Partial<AppSettings>,
-    isFirstSync: boolean = false
-  ): Promise<{ bookmarks: Bookmark[]; settings: Partial<AppSettings> }> {
-    if (!this.pinHash) {
-      throw new Error('Sync not enabled');
-    }
-
-    try {
-      // 1. 先拉取云端数据
-      const cloudData = await this.pullFromCloud();
-
-      // 2. 如果云端没有数据，直接推送本地数据
-      if (!cloudData || (!cloudData.bookmarks && !cloudData.settings)) {
-        await this.pushToCloud(localBookmarks, localSettings);
-        return { bookmarks: localBookmarks, settings: localSettings };
-      }
-
-      // 3. 如果是首次同步（刚启用同步），优先使用云端数据
-      if (isFirstSync) {
-        return {
-          bookmarks: cloudData.bookmarks || localBookmarks,
-          settings: cloudData.settings || localSettings,
-        };
-      }
-
-      // 4. 比较时间戳，使用最新的数据
-      const localLastModified = parseInt(localStorage.getItem('navhub_last_modified') || '0');
-      const cloudLastModified = cloudData.lastModified || 0;
-
-      if (cloudLastModified > localLastModified) {
-        // 云端数据更新，使用云端数据
-        return {
-          bookmarks: cloudData.bookmarks || localBookmarks,
-          settings: cloudData.settings || localSettings,
-        };
-      } else {
-        // 本地数据更新，推送到云端
-        await this.pushToCloud(localBookmarks, localSettings);
-        return { bookmarks: localBookmarks, settings: localSettings };
-      }
-    } catch (error) {
-      console.error('Sync error:', error);
-      // 同步失败时返回本地数据
-      return { bookmarks: localBookmarks, settings: localSettings };
     }
   }
 

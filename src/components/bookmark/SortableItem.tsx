@@ -34,7 +34,8 @@ export const SortableItem: React.FC<SortableItemProps> = ({
         transition,
         opacity: isDragging ? 0.4 : 1,
         zIndex: isDragging ? 999 : 'auto',
-        touchAction: 'none', // Prevent scrolling while dragging
+        // 仅拖拽激活期间禁用触摸滚动，平时允许从卡片发起页面滚动（审计 D1）
+        touchAction: isDragging ? 'none' : 'auto',
     };
 
     return (

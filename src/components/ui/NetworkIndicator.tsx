@@ -1,6 +1,7 @@
 import React from 'react';
 import { useOnline } from '../../hooks';
 import { Language } from '../../types';
+import { getTranslation } from '../../i18n';
 
 interface NetworkIndicatorProps {
     language: Language;
@@ -51,9 +52,9 @@ export const NetworkIndicator: React.FC<NetworkIndicatorProps> = ({
             <span>
                 {isOnline
                     ? wasOffline
-                        ? language === 'zh' ? '已恢复连接' : 'Back Online'
-                        : language === 'zh' ? '在线' : 'Online'
-                    : language === 'zh' ? '离线模式' : 'Offline'
+                        ? getTranslation(language, 'networkBackOnline')
+                        : getTranslation(language, 'networkOnline')
+                    : getTranslation(language, 'networkOffline')
                 }
             </span>
 

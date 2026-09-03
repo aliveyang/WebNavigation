@@ -3,7 +3,7 @@
  * 使用 React Context + useReducer 模式
  * reducer 与状态类型定义在 ./appReducer（独立纯函数模块，便于单测）
  */
-import React, { createContext, useContext, useReducer, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useMemo, ReactNode } from 'react';
 import { Bookmark, AppSettings } from '../../types';
 import { ToastType } from '../../components/ui';
 import { appReducer, initialState, type AppState, type AppAction } from './appReducer';
@@ -60,64 +60,70 @@ export function AppProvider({ children, initialBookmarks, initialSettings }: App
         settings: initialSettings || initialState.settings,
     });
 
-    // 便捷方法
-    const actions = {
+    // 便捷方法：actions 容器记忆化，保证引用稳定（审计 C1）
+    const actions = useMemo(() => ({
         // 书签
-        addBookmark: useCallback((bookmark: Bookmark) => {
+        addBookmark: (bookmark: Bookmark) => {
             dispatch({ type: 'ADD_BOOKMARK', payload: bookmark });
-        }, []),
+        },
 
-        updateBookmark: useCallback((id: string, data: Partial<Bookmark>) => {
+        updateBookmark: (id: string, data: Partial<Bookmark>) => {
             dispatch({ type: 'UPDATE_BOOKMARK', payload: { id, data } });
-        }, []),
+        },
 
-        deleteBookmark: useCallback((id: string) => {
+        deleteBookmark: (id: string) => {
             dispatch({ type: 'DELETE_BOOKMARK', payload: id });
-        }, []),
+        },
 
         // 设置
-        updateSettings: useCallback((settings: Partial<AppSettings>) => {
+        updateSettings: (settings: Partial<AppSettings>) => {
             dispatch({ type: 'UPDATE_SETTINGS', payload: settings });
-        }, []),
+        },
 
         // Modal
-        openEditModal: useCallback((bookmark?: Bookmark) => {
+        openEditModal: (bookmark?: Bookmark) => {
             dispatch({ type: 'OPEN_EDIT_MODAL', payload: bookmark });
-        }, []),
+        },
 
-        openSettingsModal: useCallback(() => {
+        openSettingsModal: () => {
             dispatch({ type: 'OPEN_SETTINGS_MODAL' });
-        }, []),
+        },
 
-        openSyncModal: useCallback(() => {
+        openSyncModal: () => {
             dispatch({ type: 'OPEN_SYNC_MODAL' });
-        }, []),
+        },
 
-        closeModal: useCallback(() => {
+        closeModal: () => {
             dispatch({ type: 'CLOSE_MODAL' });
-        }, []),
+        },
 
         // Action Sheet
-        openActionSheet: useCallback((bookmark: Bookmark) => {
+        openActionSheet: (bookmark: Bookmark) => {
             dispatch({ type: 'OPEN_ACTION_SHEET', payload: bookmark });
-        }, []),
+        },
 
-        closeActionSheet: useCallback(() => {
+        closeActionSheet: () => {
             dispatch({ type: 'CLOSE_ACTION_SHEET' });
-        }, []),
+        },
 
         // Toast
-        showToast: useCallback((message: string, type: ToastType = 'info', duration?: number) => {
+        showToast: (message: string, type: ToastType = 'info', duration?: number) => {
             dispatch({ type: 'ADD_TOAST', payload: { message, type, duration } });
-        }, []),
+        },
 
-        dismissToast: useCallback((id: string) => {
+        dismissToast: (id: string) => {
             dispatch({ type: 'REMOVE_TOAST', payload: id });
-        }, []),
-    };
+        },
+    }), [dispatch]);
+
+    // context value 记忆化：仅在 state 变化时更新引用，避免全树重渲染（审计 C1）
+    const contextValue = useMemo(
+        () => ({ state, dispatch, actions }),
+        [state, dispatch, actions]
+    );
 
     return (
-        <AppContext.Provider value={{ state, dispatch, actions }}>
+        <AppContext.Provider value={contextValue}>
             {children}
         </AppContext.Provider>
     );

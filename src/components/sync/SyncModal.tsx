@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { syncManager } from '../../syncManager';
+import React, { useState, useEffect } from 'react';
+import { syncManager, type SyncStatus } from '../../syncManager';
 import { Bookmark, AppSettings, Language } from '../../types';
 import { validatePin, sanitizeBookmarks, sanitizeSettings } from '../../utils';
 import { getTranslation } from '../../i18n';
+import { useConfirm } from '../ui';
 import { STORAGE_KEY, SETTINGS_KEY } from '../../constants';
 
 interface SyncModalProps {
@@ -23,10 +24,19 @@ export const SyncModal: React.FC<SyncModalProps> = ({
     const [pin, setPin] = useState('');
     const [isEnabling, setIsEnabling] = useState(false);
     const [error, setError] = useState('');
-    const syncStatus = syncManager.getStatus();
+    const confirm = useConfirm();
+    // 订阅同步状态：弹窗打开期间状态实时更新，而非渲染快照（审计 B5）
+    const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => syncManager.getStatus());
+
+    useEffect(() => {
+        const unsubscribe = syncManager.onStatusChange(setSyncStatus);
+        return () => {
+            unsubscribe();
+        };
+    }, []);
 
     // 弹窗打开时重置表单（渲染期 props 变化重置模式，避免 setState-in-effect）
-    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+    const [prevIsOpen, setPrevIsOpen] = useState<boolean | null>(null);
     if (isOpen !== prevIsOpen) {
         setPrevIsOpen(isOpen);
         setPin('');
@@ -63,20 +73,22 @@ export const SyncModal: React.FC<SyncModalProps> = ({
             let finalBookmarks: Bookmark[] = localBookmarks;
             let finalSettings = localSettings;
 
-            // 如果云端有数据且本地也有数据，让用户选择
+            // 如果云端有数据且本地也有数据，让用户选择（D2：ConfirmDialog 替换原生 confirm）
             if (cloudData && cloudData.bookmarks && cloudData.bookmarks.length > 0 && localBookmarks.length > 0) {
                 const cloudTitles = cloudData.bookmarks.map((b) => `  • ${b.title}`).join('\n');
                 const localTitles = localBookmarks.map((b) => `  • ${b.title}`).join('\n');
 
-                const choice = confirm(
-                    `Both cloud and local have bookmarks:\n\n` +
-                    `CLOUD bookmarks (${cloudData.bookmarks.length}):\n${cloudTitles}\n\n` +
-                    `LOCAL bookmarks (${localBookmarks.length}):\n${localTitles}\n\n` +
-                    `Click OK to use CLOUD data (remote replaces local).\n` +
-                    `Click Cancel to use LOCAL data (local replaces remote).`
-                );
+                const useCloud = await confirm({
+                    title: getTranslation(language, 'syncConflictTitle'),
+                    message:
+                        `${getTranslation(language, 'enableConflictHint')}\n\n` +
+                        `${getTranslation(language, 'cloudBookmarksLabel')} (${cloudData.bookmarks.length}):\n${cloudTitles}\n\n` +
+                        `${getTranslation(language, 'localBookmarksLabel')} (${localBookmarks.length}):\n${localTitles}`,
+                    confirmText: getTranslation(language, 'useCloudData'),
+                    cancelText: getTranslation(language, 'useLocalData'),
+                });
 
-                if (choice) {
+                if (useCloud) {
                     // 使用云端数据
                     finalBookmarks = cloudData.bookmarks;
                     finalSettings = cloudData.settings || localSettings;
@@ -116,8 +128,12 @@ export const SyncModal: React.FC<SyncModalProps> = ({
         }
     };
 
-    const handleDisableSync = () => {
-        if (confirm('Are you sure you want to disable sync? Your local data will not be affected.')) {
+    const handleDisableSync = async () => {
+        if (await confirm({
+            title: getTranslation(language, 'disableSync'),
+            message: getTranslation(language, 'disableSyncConfirm'),
+            danger: true,
+        })) {
             syncManager.disableSync();
             onClose();
         }
@@ -147,20 +163,21 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                 const cloudBookmarksStr = JSON.stringify(cloudData.bookmarks.map((b) => ({ id: b.id, title: b.title, url: b.url })).sort((a, b) => a.id.localeCompare(b.id)));
                 const localBookmarksStr = JSON.stringify(localBookmarks.map((b) => ({ id: b.id, title: b.title, url: b.url })).sort((a, b) => a.id.localeCompare(b.id)));
 
-                // 如果内容不同，让用户选择
+                // 如果内容不同，让用户选择（D2：ConfirmDialog 替换原生 confirm）
                 if (cloudBookmarksStr !== localBookmarksStr) {
                     const cloudTitles = cloudData.bookmarks.map((b) => `  • ${b.title}`).join('\n');
                     const localTitles = localBookmarks.map((b) => `  • ${b.title}`).join('\n');
 
-                    const choice = confirm(
-                        `Sync conflict detected!\n\n` +
-                        `CLOUD bookmarks (${cloudData.bookmarks.length}):\n${cloudTitles}\n\n` +
-                        `LOCAL bookmarks (${localBookmarks.length}):\n${localTitles}\n\n` +
-                        `Click OK to use CLOUD data.\n` +
-                        `Click Cancel to use LOCAL data.`
-                    );
+                    const useCloud = await confirm({
+                        title: getTranslation(language, 'syncConflictTitle'),
+                        message:
+                            `${getTranslation(language, 'cloudBookmarksLabel')} (${cloudData.bookmarks.length}):\n${cloudTitles}\n\n` +
+                            `${getTranslation(language, 'localBookmarksLabel')} (${localBookmarks.length}):\n${localTitles}`,
+                        confirmText: getTranslation(language, 'useCloudData'),
+                        cancelText: getTranslation(language, 'useLocalData'),
+                    });
 
-                    if (choice) {
+                    if (useCloud) {
                         // 使用云端数据
                         finalBookmarks = cloudData.bookmarks;
                         finalSettings = cloudData.settings || localSettings;

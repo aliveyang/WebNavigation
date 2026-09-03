@@ -134,15 +134,6 @@ class FaviconCache {
     localStorage.removeItem('navhub_favicon_cache');
   }
 
-  /**
-   * 获取缓存统计信息
-   */
-  getStats(): { size: number; maxSize: number } {
-    return {
-      size: this.cache.size,
-      maxSize: MAX_CACHE_SIZE
-    };
-  }
 }
 
 // 导出单例

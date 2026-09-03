@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Language } from '../../types';
+import { getTranslation, type Translations } from '../../i18n';
 
 interface OnboardingStep {
-    title: Record<Language, string>;
-    description: Record<Language, string>;
+    titleKey: keyof Translations;
+    descriptionKey: keyof Translations;
     targetId?: string; // CSS ID to highlight
     image?: React.ReactNode;
 }
 
 const STEPS: OnboardingStep[] = [
     {
-        title: { zh: '欢迎使用 NavHub', en: 'Welcome to NavHub' },
-        description: {
-            zh: '这是一个极简、高效的浏览器起始页。让我为您简单介绍一下功能。',
-            en: 'This is a minimal and efficient browser start page. Let me give you a quick tour.',
-        },
+        titleKey: 'onboardingWelcomeTitle',
+        descriptionKey: 'onboardingWelcomeDesc',
         image: (
             <div className="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4 animate-bounce">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-white">
@@ -25,11 +23,8 @@ const STEPS: OnboardingStep[] = [
         )
     },
     {
-        title: { zh: '长按编辑', en: 'Long Press to Edit' },
-        description: {
-            zh: '在手机上，长按任意卡片即可进行编辑、删除或重新排序。在电脑上，点击右键呼出菜单。',
-            en: 'On mobile, long press any card to edit, delete or reorder. On desktop, right click to open menu.',
-        },
+        titleKey: 'onboardingLongPressTitle',
+        descriptionKey: 'onboardingLongPressDesc',
         image: (
             <div className="flex gap-4 mb-4">
                 <div className="w-12 h-12 bg-slate-700 rounded-xl relative animate-pulse">
@@ -43,11 +38,8 @@ const STEPS: OnboardingStep[] = [
         )
     },
     {
-        title: { zh: '云端同步', en: 'Cloud Sync' },
-        description: {
-            zh: '点击右上角设置图标，开启云同步功能。只需一个 PIN 码，即可在多设备间无缝同步书签。',
-            en: 'Tap the settings icon to enable Cloud Sync. Sync your bookmarks across devices with just a PIN code.',
-        },
+        titleKey: 'onboardingSyncTitle',
+        descriptionKey: 'onboardingSyncDesc',
         image: (
             <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center shadow-lg mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-white">
@@ -57,11 +49,8 @@ const STEPS: OnboardingStep[] = [
         )
     },
     {
-        title: { zh: '开始探索', en: 'Ready to Go' },
-        description: {
-            zh: '现在，添加您最爱的网站，定制您的专属起始页吧！',
-            en: 'Now, add your favorite websites and customize your start page!',
-        },
+        titleKey: 'onboardingReadyTitle',
+        descriptionKey: 'onboardingReadyDesc',
     }
 ];
 
@@ -121,10 +110,10 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClos
                 <div className="flex-1 flex flex-col items-center justify-center min-h-[200px]">
                     {step.image}
                     <h2 className="text-2xl font-bold text-white mb-4 mt-2">
-                        {step.title[language]}
+                        {getTranslation(language, step.titleKey)}
                     </h2>
                     <p className="text-slate-400 leading-relaxed">
-                        {step.description[language]}
+                        {getTranslation(language, step.descriptionKey)}
                     </p>
                 </div>
 
@@ -134,7 +123,7 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClos
                         onClick={handleNext}
                         className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-95"
                     >
-                        {isLast ? (language === 'zh' ? '开启旅程' : 'Get Started') : (language === 'zh' ? '下一步' : 'Next')}
+                        {isLast ? getTranslation(language, 'onboardingStart') : getTranslation(language, 'onboardingNext')}
                     </button>
 
                     {!isLast && (
@@ -142,7 +131,7 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClos
                             onClick={onClose}
                             className="mt-4 text-sm text-slate-500 hover:text-slate-400 font-medium"
                         >
-                            {language === 'zh' ? '跳过介绍' : 'Skip Intro'}
+                            {getTranslation(language, 'onboardingSkip')}
                         </button>
                     )}
                 </div>

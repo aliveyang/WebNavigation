@@ -1,4 +1,6 @@
-export type Language = 'en' | 'zh';
+import type { Language } from './types';
+
+export type { Language };
 
 export interface Translations {
   // Header
@@ -65,6 +67,45 @@ export interface Translations {
   syncNote: string;
   syncNote2: string;
   pinNote: string;
+
+  // Sync conflicts (D2: 原生 confirm 替换为 ConfirmDialog)
+  syncConflictTitle: string;
+  enableConflictHint: string;
+  cloudBookmarksLabel: string;
+  localBookmarksLabel: string;
+  useCloudData: string;
+  useLocalData: string;
+  disableSyncConfirm: string;
+  confirmOk: string;
+
+  // Network Indicator
+  networkOnline: string;
+  networkOffline: string;
+  networkBackOnline: string;
+
+  // Context Menu
+  copyLink: string;
+  copiedToClipboard: string;
+
+  // Bookmark Edit Modal（Favicon 区块与校验提示）
+  faviconUrlLabel: string;
+  copy: string;
+  faviconTip: string;
+  invalidImageUrl: string;
+  imageUploadFailed: string;
+
+  // Onboarding
+  onboardingWelcomeTitle: string;
+  onboardingWelcomeDesc: string;
+  onboardingLongPressTitle: string;
+  onboardingLongPressDesc: string;
+  onboardingSyncTitle: string;
+  onboardingSyncDesc: string;
+  onboardingReadyTitle: string;
+  onboardingReadyDesc: string;
+  onboardingNext: string;
+  onboardingStart: string;
+  onboardingSkip: string;
 
   // Common
   close: string;
@@ -139,6 +180,45 @@ export const translations: Record<Language, Translations> = {
     syncNote2: 'Both cloud and local have bookmarks',
     pinNote: 'Note: Your PIN code is used to identify your sync account. Keep it secure and don\'t share it with others.',
 
+    // Sync conflicts
+    syncConflictTitle: 'Sync conflict detected',
+    enableConflictHint: 'Both cloud and local have bookmarks. Choose which version to keep:',
+    cloudBookmarksLabel: 'Cloud bookmarks',
+    localBookmarksLabel: 'Local bookmarks',
+    useCloudData: 'Use cloud data',
+    useLocalData: 'Use local data',
+    disableSyncConfirm: 'Disable sync? Your local data will not be affected.',
+    confirmOk: 'OK',
+
+    // Network Indicator
+    networkOnline: 'Online',
+    networkOffline: 'Offline',
+    networkBackOnline: 'Back Online',
+
+    // Context Menu
+    copyLink: 'Copy Link',
+    copiedToClipboard: 'Copied to clipboard!',
+
+    // Bookmark Edit Modal
+    faviconUrlLabel: 'Favicon URL (for Image mode):',
+    copy: 'Copy',
+    faviconTip: 'Tip: Copy this URL and paste it in Image mode to use.',
+    invalidImageUrl: 'Invalid image URL. Please use a valid image URL or upload a local image.',
+    imageUploadFailed: 'Image upload failed. Try a smaller file.',
+
+    // Onboarding
+    onboardingWelcomeTitle: 'Welcome to NavHub',
+    onboardingWelcomeDesc: 'This is a minimal and efficient browser start page. Let me give you a quick tour.',
+    onboardingLongPressTitle: 'Long Press to Edit',
+    onboardingLongPressDesc: 'On mobile, long press any card to edit, delete or reorder. On desktop, right click to open menu.',
+    onboardingSyncTitle: 'Cloud Sync',
+    onboardingSyncDesc: 'Tap the settings icon to enable Cloud Sync. Sync your bookmarks across devices with just a PIN code.',
+    onboardingReadyTitle: 'Ready to Go',
+    onboardingReadyDesc: 'Now, add your favorite websites and customize your start page!',
+    onboardingNext: 'Next',
+    onboardingStart: 'Get Started',
+    onboardingSkip: 'Skip Intro',
+
     // Common
     close: 'Close',
     edit: 'Edit',
@@ -209,6 +289,45 @@ export const translations: Record<Language, Translations> = {
     syncNote: '您的书签会在更改时自动同步。使用"立即同步"强制立即同步。',
     syncNote2: '云端和本地都有书签',
     pinNote: '注意：您的 PIN 码用于识别您的同步账户。请妥善保管，不要与他人分享。',
+
+    // Sync conflicts
+    syncConflictTitle: '检测到同步冲突',
+    enableConflictHint: '云端和本地都有书签，请选择保留哪一边：',
+    cloudBookmarksLabel: '云端书签',
+    localBookmarksLabel: '本地书签',
+    useCloudData: '使用云端数据',
+    useLocalData: '使用本地数据',
+    disableSyncConfirm: '确定要禁用同步吗？本地数据不受影响。',
+    confirmOk: '确定',
+
+    // Network Indicator
+    networkOnline: '在线',
+    networkOffline: '离线模式',
+    networkBackOnline: '网络已恢复',
+
+    // Context Menu
+    copyLink: '复制链接',
+    copiedToClipboard: '已复制到剪贴板！',
+
+    // Bookmark Edit Modal
+    faviconUrlLabel: 'Favicon URL（用于 Image 模式）：',
+    copy: '复制',
+    faviconTip: '提示：复制此 URL，切换到 Image 模式粘贴即可使用。',
+    invalidImageUrl: '图片地址无效，请使用有效的图片 URL 或上传本地图片。',
+    imageUploadFailed: '图片上传失败，请尝试更小的文件。',
+
+    // Onboarding
+    onboardingWelcomeTitle: '欢迎使用 NavHub',
+    onboardingWelcomeDesc: '这是一个极简、高效的浏览器起始页。让我为您简单介绍一下功能。',
+    onboardingLongPressTitle: '长按编辑',
+    onboardingLongPressDesc: '在手机上，长按任意卡片即可进行编辑、删除或重新排序。在电脑上，点击右键呼出菜单。',
+    onboardingSyncTitle: '云端同步',
+    onboardingSyncDesc: '点击右上角设置图标，开启云同步功能。只需一个 PIN 码，即可在多设备间无缝同步书签。',
+    onboardingReadyTitle: '开始探索',
+    onboardingReadyDesc: '现在，添加您最爱的网站，定制您的专属起始页吧！',
+    onboardingNext: '下一步',
+    onboardingStart: '开启旅程',
+    onboardingSkip: '跳过介绍',
 
     // Common
     close: '关闭',

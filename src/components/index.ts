@@ -21,5 +21,6 @@ export {
     PageSkeleton,
     NetworkIndicator,
     ContextMenu,
+    ConfirmProvider,
 } from './ui';
 export type { ToastMessage, ToastType } from './ui';

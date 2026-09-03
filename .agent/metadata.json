@@ -1,0 +1,5 @@
+{
+  "name": "NavHub",
+  "description": "NavHub - 个人导航仪表板（起始页）. 项目文档与规范见 AGENTS.md / doc/。",
+  "requestFramePermissions": []
+}

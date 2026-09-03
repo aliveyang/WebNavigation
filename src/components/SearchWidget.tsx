@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SEARCH_ENGINES } from '../constants';
 import { AppSettings } from '../types';
+import { getTranslation } from '../i18n';
 
 interface SearchWidgetProps {
   settings: AppSettings;
@@ -19,7 +20,9 @@ export const SearchWidget: React.FC<SearchWidgetProps> = ({ settings }) => {
     }
   };
 
-  const placeholder = `Search ${SEARCH_ENGINES[searchEngine]?.name || 'Google'}...`;
+  const placeholder = getTranslation(settings.language, 'searchPlaceholder', {
+    engine: SEARCH_ENGINES[searchEngine]?.name || 'Google',
+  });
 
   return (
     <form onSubmit={onSearch} className="w-full mb-8 relative z-10 px-2">

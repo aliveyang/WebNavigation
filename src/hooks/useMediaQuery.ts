@@ -2,61 +2,27 @@
  * 媒体查询 Hook
  * 用于响应式设计
  */
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 
-export function useMediaQuery(query: string): boolean {
-    const [matches, setMatches] = useState(() => {
-        if (typeof window === 'undefined') return false;
-        return window.matchMedia(query).matches;
-    });
+// 移动端断点使用模块级共享 MediaQueryList：
+// 所有卡片共用一个原生监听器，替代每卡片自挂 resize 监听（审计 C4）
+let mobileMQL: MediaQueryList | null = null;
+const getMobileMQL = (): MediaQueryList => {
+    if (!mobileMQL) {
+        mobileMQL = window.matchMedia('(max-width: 640px)');
+    }
+    return mobileMQL;
+};
 
-    useEffect(() => {
-        const mediaQuery = window.matchMedia(query);
-
-        const handler = (event: MediaQueryListEvent) => {
-            setMatches(event.matches);
-        };
-
-        // 兼容旧版浏览器
-        if (mediaQuery.addEventListener) {
-            mediaQuery.addEventListener('change', handler);
-        } else {
-            mediaQuery.addListener(handler);
-        }
-
-        // 初始正确性由 useState 惰性初始化保证；
-        // 调用方均使用常量 query（useIsMobile 等），无需在 effect 中同步 setState
-        return () => {
-            if (mediaQuery.removeEventListener) {
-                mediaQuery.removeEventListener('change', handler);
-            } else {
-                mediaQuery.removeListener(handler);
-            }
-        };
-    }, [query]);
-
-    return matches;
-}
-
-/**
- * 预设的常用媒体查询
- */
 export function useIsMobile(): boolean {
-    return useMediaQuery('(max-width: 640px)');
-}
-
-export function useIsTablet(): boolean {
-    return useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
-}
-
-export function useIsDesktop(): boolean {
-    return useMediaQuery('(min-width: 1025px)');
-}
-
-export function usePrefersDarkMode(): boolean {
-    return useMediaQuery('(prefers-color-scheme: dark)');
-}
-
-export function usePrefersReducedMotion(): boolean {
-    return useMediaQuery('(prefers-reduced-motion: reduce)');
+    const subscribe = (onChange: () => void) => {
+        const mql = getMobileMQL();
+        mql.addEventListener('change', onChange);
+        return () => mql.removeEventListener('change', onChange);
+    };
+    return useSyncExternalStore(
+        subscribe,
+        () => getMobileMQL().matches,
+        () => false
+    );
 }

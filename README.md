@@ -25,7 +25,7 @@
 ### 🖱️ 交互升级
 
 - **多模态操作** - <span style="background-color: #e6f7ff; color: #0077b6; padding: 2px 6px; border-radius: 4px;">New</span>
-    - **移动端**: 长按 (800ms) 呼出操作菜单；长按后拖拽 (250ms) 实现排序
+    - **移动端**: 长按 (2s) 呼出操作菜单；拖拽 (按住 1s 后拖动) 实现排序
     - **PC 端**: 右键点击呼出菜单；左键拖拽排序
 - **快捷菜单** - <span style="background-color: #e6f7ff; color: #0077b6; padding: 2px 6px; border-radius: 4px;">New</span> 统一的 ActionSheet 菜单，集成编辑、删除、设置与同步入口
 - **首次引导** - 新用户友好的功能介绍
@@ -64,8 +64,8 @@
 
 ### 3. 多设备同步流程
 1. 打开长按菜单，点击云图标。
-2. 设置一个 **4位以上 PIN 码**。
-3. 点击 **启用同步**。
+2. 设置一个 **8位以上 PIN 码**（云端凭据经 PBKDF2 派生存放）.
+3. 点击 **启用同步**（启用时旧版无盐账户自动迁移到新凭据）.
 4. 在新设备输入相同 PIN 码即可拉取数据。
 
 ---
@@ -76,7 +76,7 @@
 - **构建工具**: Vite 6
 - **状态管理**: React Context API (`AppContext`) + Hooks
 - **交互库**: @dnd-kit (拖拽), use-long-press
-- **样式方案**: Tailwind CSS
+- **样式方案**: Tailwind CSS（构建期编译，Vite + PostCSS）
 - **PWA 支持**: vite-plugin-pwa
 - **云存储**: Vercel KV (Redis)
 - **国际化**: 自研轻量级 i18n 方案

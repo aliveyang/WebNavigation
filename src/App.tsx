@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   useApp, useBookmarks, useSettings, useUI, useToasts
 } from './store';
@@ -7,7 +7,7 @@ import {
   ActionSheet, BookmarkEditModal, SettingsModal,
   SyncModal, OnboardingGuide,
   ToastContainer, NetworkIndicator, ContextMenu,
-  PageSkeleton
+  PageSkeleton, ConfirmProvider
 } from './components';
 import { Bookmark, AppSettings } from './types';
 import { STORAGE_KEY, SETTINGS_KEY } from './constants';
@@ -85,24 +85,70 @@ const App = () => {
   }, [dispatch, showToast]);
 
   // --- Persistence & Auto Sync ---
-  // Save Bookmarks
+  // localStorage 写防抖（审计 C3）：书签/设置高频变化（如拖拽）合并为 300ms 一次写入，
+  // 页面隐藏/关闭时立即 flush 防丢数据
+  const pendingSaveRef = useRef<{ bookmarks: Bookmark[]; settings: AppSettings } | null>(null);
+  const saveTimerRef = useRef<number | null>(null);
+
+  const scheduleSave = useCallback((bookmarks: Bookmark[], settings: AppSettings) => {
+    pendingSaveRef.current = { bookmarks, settings };
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      const pending = pendingSaveRef.current;
+      if (!pending) return;
+      pendingSaveRef.current = null;
+      saveToStorage(STORAGE_KEY, pending.bookmarks);
+      saveToStorage(SETTINGS_KEY, pending.settings);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    const flush = () => {
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      const pending = pendingSaveRef.current;
+      if (pending) {
+        pendingSaveRef.current = null;
+        saveToStorage(STORAGE_KEY, pending.bookmarks);
+        saveToStorage(SETTINGS_KEY, pending.settings);
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+      flush();
+    };
+  }, []);
+
+  // Save Bookmarks (+ Settings) & Auto Sync
   useEffect(() => {
     if (!ui.isLoading) {
       // 初始加载失败后阻断持久化与自动推送，直到用户显式操作（审计 B8）
       if (loadFailedRef.current) return;
 
-      saveToStorage(STORAGE_KEY, bookmarks);
+      scheduleSave(bookmarks, settings);
 
       // Auto Sync Logic (debounced to avoid rate limit / write storms)
       if (syncManager.getStatus().enabled && !isSyncingRef.current && isOnlineStatus.isOnline) {
         syncManager.debouncedPush(bookmarks, settings, 2000);
       }
     }
-  }, [bookmarks, ui.isLoading, settings, isOnlineStatus.isOnline]);
+  }, [bookmarks, ui.isLoading, settings, isOnlineStatus.isOnline, scheduleSave]);
 
-  // Save Settings & Apply Global Styles
+  // Apply Global Styles & Document Language
   useEffect(() => {
     if (!ui.isLoading) {
+      // <html lang> 随设置语言更新（审计 D3）
+      document.documentElement.lang = settings.language === 'zh' ? 'zh-CN' : 'en';
+
       // Apply Global Styles（样式应用不受加载失败影响，但持久化阻断，见 B8）
       if (settings.globalBgType === 'gradient' && settings.globalBgGradient) {
         document.body.style.background = '';
@@ -117,9 +163,6 @@ const App = () => {
         document.body.style.background = '';
         document.body.className = 'min-h-screen bg-slate-900 bg-[radial-gradient(circle_at_50%_0%,#1e293b_0%,#0f172a_70%)] fixed inset-0';
       }
-
-      if (loadFailedRef.current) return;
-      saveToStorage(SETTINGS_KEY, settings);
     }
   }, [settings, ui.isLoading]);
 
@@ -147,14 +190,15 @@ const App = () => {
       showToast(language === 'zh' ? '已更新' : 'Updated', 'success');
     } else {
       actions.addBookmark({
-        id: Date.now().toString(),
-        createdAt: Date.now(),
+        id: crypto.randomUUID(),
         title: 'New Shortcut',
         url: 'https://',
         bgType: 'gradient',
         iconKey: 'home',
+        colorFrom: 'from-blue-400',
+        colorTo: 'to-cyan-400',
         ...data
-      } as Bookmark);
+      });
       showToast(language === 'zh' ? '已添加' : 'Added', 'success');
     }
     actions.closeModal();
@@ -164,7 +208,8 @@ const App = () => {
   if (ui.isLoading) return <PageSkeleton />;
 
   return (
-    <div className="min-h-screen text-slate-100 font-sans pb-safe">
+    <ConfirmProvider language={language}>
+    <div className="min-h-screen text-slate-100 font-sans pb-8">
       <NetworkIndicator
         language={language}
         showWhenOnline={false}
@@ -276,6 +321,7 @@ const App = () => {
 
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
+    </ConfirmProvider>
   );
 };
 

@@ -1,0 +1,4 @@
+/* Tailwind 构建期入口（替代 cdn.tailwindcss.com 运行时 JIT，审计 A3/C2） */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

@@ -42,13 +42,14 @@ export function useOnline(): OnlineStatus {
         };
     }, [handleOnline, handleOffline]);
 
-    return status;
-}
+    // 恢复在线数秒后自动清除 wasOffline，让"已恢复连接"横幅可以消失（审计 B3）
+    useEffect(() => {
+        if (!status.isOnline || !status.wasOffline) return;
+        const timer = window.setTimeout(() => {
+            setStatus((prev) => ({ ...prev, wasOffline: false }));
+        }, 5000);
+        return () => window.clearTimeout(timer);
+    }, [status.isOnline, status.wasOffline]);
 
-/**
- * 简化版：仅返回是否在线
- */
-export function useIsOnline(): boolean {
-    const { isOnline } = useOnline();
-    return isOnline;
+    return status;
 }

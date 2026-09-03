@@ -41,28 +41,6 @@ class RateLimiter {
     return Math.max(0, this.maxRequests - this.requests.length);
   }
 
-  /**
-   * 获取下次可以请求的时间
-   * @returns 下次可以请求的时间戳，如果可以立即请求则返回 0
-   */
-  getNextAvailableTime(): number {
-    if (this.requests.length < this.maxRequests) {
-      return 0;
-    }
-
-    const now = Date.now();
-    const oldestRequest = this.requests[0];
-    const nextAvailable = oldestRequest + this.timeWindow;
-
-    return Math.max(0, nextAvailable - now);
-  }
-
-  /**
-   * 重置速率限制器
-   */
-  reset(): void {
-    this.requests = [];
-  }
 }
 
 // 创建全局速率限制器实例

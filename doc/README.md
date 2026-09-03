@@ -14,6 +14,7 @@ WebNavigation/
 │   └── release/                    # 发布类
 │       └── CHANGELOG.md            # 版本变更记录（原根目录 CHANGELOG.md）
 └── README.md                       # 项目说明（面向用户）
+├── .agent/                        # 历史代理生成物（OPTIMIZATION_*.md 为早期迭代记录，metadata.json 已收编）
 ```
 
 > 根目录不再承载详细文档；`CLAUDE.md` 是通过 `@AGENTS.md` 导入规范全文的快捷方式，供 Claude Code 等 AI 代理读取。

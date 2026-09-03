@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8">
@@ -11,12 +11,14 @@
     <meta name="apple-mobile-web-app-title" content="NavHub">
 
     <!-- Content Security Policy -->
+    <!-- 注意：与 vercel.json 的 header CSP 同步维护（策略见 AGENTS.md §7）。
+         Tailwind 已迁移为构建期编译，script-src 不再需要 unsafe-inline 与第三方 CDN -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
-      style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
+      script-src 'self';
+      style-src 'self' 'unsafe-inline';
       img-src 'self' data: https:;
-      connect-src 'self' https://api.vercel.com https://*.vercel.com https://cdn.tailwindcss.com https://www.google.com https://registry.npmmirror.com;
+      connect-src 'self' https://api.vercel.com https://*.vercel.com https://www.google.com https://registry.npmmirror.com;
       font-src 'self' data:;
       object-src 'none';
       base-uri 'self';
@@ -24,8 +26,6 @@
       upgrade-insecure-requests;
     ">
 
-    <!-- Preconnect to CDN for better performance -->
-    <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="dns-prefetch" href="https://www.google.com">
 
     <link rel="manifest" href="/manifest.webmanifest">
@@ -33,7 +33,6 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
     <link rel="apple-touch-icon" href="/icon-192.png">
     <title>NavHub</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
             background-color: #0f172a;

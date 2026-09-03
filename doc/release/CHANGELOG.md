@@ -30,6 +30,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **lastModified write order (P7)**: `api/sync/save` now writes `lastModified` after the data instead of in parallel.
 - **Drag cancels long-press (D1, part 1)**: activating a drag cancels the card's long-press timer, so the action menu can no longer pop up mid-drag.
 
+### UX & Cleanup
+- **Touch scrolling restored on cards (D1, part 2)**: `touch-action` is only set to `none` while a drag is actually active, so you can scroll from card surfaces normally.
+- **Long-press progress bar no longer appears mid-drag (D1)**: pressing feedback is suppressed while a drag is active.
+- **Clock updates every minute (B2)**: Header now re-renders on a 60s interval instead of showing a frozen date/time snapshot.
+- **"Back online" banner now disappears (B3)**: `wasOffline` auto-clears 5s after reconnecting.
+
+- **Random bookmark IDs (B4)**: new bookmarks use `crypto.randomUUID()` instead of `Date.now()` (collision-safe), and the phantom `createdAt` field is gone.
+
+- **Sync modal status is live (B5)**: the modal now subscribes to sync status changes instead of showing a render-time snapshot.
+
+- **Skeleton matches saved column count (B7)**: PageSkeleton pre-reads `gridCols` from localStorage, avoiding layout jump on load.
+
+- **Shared mobile-breakpoint listener (C4)**: `useIsMobile` uses a module-level MediaQueryList via `useSyncExternalStore` — one native listener instead of one resize listener per card; dead media-query hook variants removed。
+- **`<html lang>` follows the selected language (D3)**: initial value `zh-CN` (matching the default zh),updated dynamically。
+- **Debounced localStorage writes (C3)**: bookmarks/settings writes are coalesced to 300ms plus flushed on page unload/hide.
+ reduces serialization on drag storms。
+
+- **Native alert/confirm eliminated (D2)**: new styled `ConfirmDialog` (+`useConfirm`) replaces both sync conflict prompts and the disable-sync confirmation; remaining validation/error alerts became toasts; 9 native dialogs → 0。
+- **i18n converged (E5)**: Onboarding steps, NetworkIndicator, SearchWidget placeholder, ContextMenu copy-link, favicon-hint/copy text, and edit-modal validation errors now route through `getTranslation`; duplicate `Language` type declaration removed (E4)。
+- **Tailwind migrated to build-time (A3/C2)**: replaces the runtime JIT CDN with PostCSS pipeline (`src/styles.css` + `tailwind.config.js` + `tailwindcss-animate`); CSP `script-src` dropped to `'self'` with no `unsafe-inline` or third-party CDN whitelists in both meta and header; dead SW runtime-cache rules for `aistudiocdn.com`/`vercel-storage.com`/`tailwindcss.com` removed. Custom `duration-[1500ms]`/`pb-safe` classes replaced with standard utilities that survive static extraction。
+- **Context value memoized (C1)**: provider value and actions container now have stable references. Dead code sweep (E3)**: removed dead `SyncManager.sync()`, `deviceId` generation/storage, `getStorageStats`, `cleanupOldData`, `faviconCache.getStats`, `rateLimit.getNextAvailableTime`/`reset`, unused media-query hooks, and SW rules; stale `navhub_device_id` key is cleaned up on boot.。
+- **Doc alignment (F1/F3/F4)**: README gesture timings (2s long-press / 1s drag), PIN>=8+ PBKDF2) and tech stack (build-time Tailwind, no use-long-press) synced; `.agent/metadata.json` rebranded to NavHub and registered in doc/README.md.。
+
+
+
 ### Engineering
 - **ESLint enabled (E1)**: ESLint 10 + typescript-eslint with flat config (`eslint.config.js`), `npm run lint` script added; the dead `.eslintrc.json` (whose plugins were never installed) removed. Current status: 0 errors / 0 warnings.
 - **Vitest test framework (E1)**: `vitest.config.ts` + `npm test`; 56 unit tests covering `security.ts` (URL/PIN validation), `settingsSanitize`, `appReducer` and `syncManager` (fingerprint short-circuit, migration, POST credential).

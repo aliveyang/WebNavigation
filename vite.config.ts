@@ -51,34 +51,8 @@ export default defineConfig(({ mode }) => {
           workbox: {
             globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
             runtimeCaching: [
-              {
-                urlPattern: /^https:\/\/cdn\.tailwindcss\.com\/.*/i,
-                handler: 'CacheFirst',
-                options: {
-                  cacheName: 'tailwind-cache',
-                  expiration: {
-                    maxEntries: 10,
-                    maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-                  },
-                  cacheableResponse: {
-                    statuses: [0, 200]
-                  }
-                }
-              },
-              {
-                urlPattern: /^https:\/\/aistudiocdn\.com\/.*/i,
-                handler: 'CacheFirst',
-                options: {
-                  cacheName: 'react-cdn-cache',
-                  expiration: {
-                    maxEntries: 10,
-                    maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-                  },
-                  cacheableResponse: {
-                    statuses: [0, 200]
-                  }
-                }
-              },
+              // 说明（审计 C2）：同步 API（/api/sync/*）含凭据数据，不设 SW 缓存；
+              // 此前指向 *.vercel-storage.com 与 aistudiocdn.com 的规则从未命中，已删除
               {
                 urlPattern: /^https:\/\/www\.google\.com\/s2\/favicons.*/i,
                 handler: 'CacheFirst',
@@ -88,22 +62,6 @@ export default defineConfig(({ mode }) => {
                     maxEntries: 200, // 增加到 200 个
                     maxAgeSeconds: 60 * 60 * 24 * 90 // 延长到 90 天
                   },
-                  cacheableResponse: {
-                    statuses: [0, 200]
-                  }
-                }
-              },
-              {
-                // 缓存 Vercel KV API 响应
-                urlPattern: /^https:\/\/.*\.vercel-storage\.com\/.*/i,
-                handler: 'NetworkFirst',
-                options: {
-                  cacheName: 'sync-api-cache',
-                  expiration: {
-                    maxEntries: 20,
-                    maxAgeSeconds: 60 * 5 // 5 minutes
-                  },
-                  networkTimeoutSeconds: 3,
                   cacheableResponse: {
                     statuses: [0, 200]
                   }

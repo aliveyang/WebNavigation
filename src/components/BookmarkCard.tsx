@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { Bookmark, CardAppearanceConfig } from '../types';
 import { PRESET_ICONS } from '../constants';
 import { getFaviconUrl } from '../utils';
+import { useIsMobile } from '../hooks';
 
 interface BookmarkCardProps {
   item: Bookmark;
@@ -64,19 +65,8 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, onLongPress,
   const bgType = useMemo(() => item.bgType || 'gradient', [item.bgType]);
   const isLibrary = useMemo(() => bgType === 'library', [bgType]);
 
-  // 检测移动设备 - 使用 useState + useEffect 监听窗口大小变化
-  const [isMobile, setIsMobile] = useState(() => {
-    return typeof window !== 'undefined' && window.innerWidth <= 640;
-  });
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 640);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // 使用共享的 matchMedia 断点监听（单例 MediaQueryList，审计 C4）
+  const isMobile = useIsMobile();
 
   const getBackgroundStyle = useMemo(() => {
     if (bgType === 'image' && item.bgImage) {
@@ -130,7 +120,7 @@ const BookmarkCardComponent: React.FC<BookmarkCardProps> = ({ item, onLongPress,
       >
         {showPressing && (
           <div className="absolute inset-0 bg-black/20 z-20 pointer-events-none">
-            <div className="absolute bottom-0 left-0 h-1 bg-white/50 transition-all duration-[1500ms] ease-linear w-full" style={{ width: showPressing ? '100%' : '0%' }} />
+            <div className="absolute bottom-0 left-0 h-1 bg-white/50 transition-all duration-500 ease-linear w-full" style={{ width: showPressing ? '100%' : '0%' }} />
           </div>
         )}
 

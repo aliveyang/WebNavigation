@@ -2,6 +2,9 @@
 export { ToastContainer } from './Toast';
 export type { ToastMessage, ToastType } from './Toast';
 
+export { ConfirmProvider, useConfirm } from './ConfirmDialog';
+export type { ConfirmOptions } from './ConfirmDialog';
+
 export { PageSkeleton } from './Skeleton';
 
 export { NetworkIndicator } from './NetworkIndicator';

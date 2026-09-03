@@ -3,6 +3,7 @@ import { AppSettings, GlobalBackgroundType, Language } from '../../types';
 import { SEARCH_ENGINES, getRandomGradient } from '../../constants';
 import { compressImage } from '../../utils';
 import { getTranslation } from '../../i18n';
+import { useToasts } from '../../store';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -17,6 +18,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     appSettings,
     onUpdateAppSettings,
 }) => {
+    const toast = useToasts();
     if (!isOpen) return null;
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,7 +28,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onUpdateAppSettings({ globalBgImage: compressed, globalBgType: 'image' });
             } catch (err) {
                 console.error("File upload failed", err);
-                alert(err instanceof Error ? err.message : "Image upload failed. Try a smaller file.");
+                toast.error(err instanceof Error ? err.message : getTranslation(appSettings.language, 'imageUploadFailed'));
             }
         }
     };
