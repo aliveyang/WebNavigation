@@ -75,7 +75,7 @@
 - **前端框架**: React 19 + TypeScript
 - **构建工具**: Vite 6
 - **状态管理**: React Context API (`AppContext`) + Hooks
-- **交互库**: @dnd-kit (拖拽), use-long-press
+- **交互库**: @dnd-kit (拖拽), 原生手势状态机 (长按/右键菜单)
 - **样式方案**: Tailwind CSS（构建期编译，Vite + PostCSS）
 - **PWA 支持**: vite-plugin-pwa
 - **云存储**: Vercel KV (Redis)

@@ -2,6 +2,7 @@
 
 > **审计日期**：2026-09-02
 > **审计基线**：`main` @ `f6c104d`（fix: 安全加固、同步防抖、死代码清理及文档规范化）
+> **闭环状态（2026-09-03）**：本报告所列 **3 项高危、8 项中危、17 项低危问题已全部整改闭环**，分 4 个批次（`dfde307` / `7ed3cae` / `ae2ac99` / `5364306`）提交，版本发布为 **v1.2.0**（详见[第六节落实记录](#六修复路线图建议与落实记录)）
 > **审计范围**：`src/`、`api/`、`index.html`、`vite.config.ts`、`vercel.json`、`package.json`、`public/`、文档体系（`AGENTS.md`、`doc/`、`.agent/`）
 > **审计方式**：全量人工代码审读（约 4,900 行源码逐文件）+ 静态扫描（`any` / `console.*` / 死代码引用 / 硬编码文案）+ 工具验证（`tsc` / `vite build` / `npm audit`）+ 与《[code-review-fix-plan.md](code-review-fix-plan.md)》（2026-08-23）逐项核对
 > **关联文档**：修复方案见 [code-review-fix-plan.md](code-review-fix-plan.md)；项目规范见根目录 [AGENTS.md](../../AGENTS.md)
@@ -15,7 +16,7 @@
 3. [本次新发现问题清单](#三本次新发现问题清单)
 4. [分维度详评](#四分维度详评)
 5. [做得好的方面](#五做得好的方面)
-6. [修复路线图建议](#六修复路线图建议)
+6. [修复路线图建议与落实记录](#六修复路线图建议与落实记录)
 7. [附录：验证证据与度量数据](#七附录验证证据与度量数据)
 
 ---
@@ -239,35 +240,44 @@ manifest（standalone、双尺寸图标、theme 色）与 `vite-plugin-pwa`（au
 
 ---
 
-## 六、修复路线图建议
+## 六、修复路线图建议与落实记录
 
-### 第一批：安全与崩溃风险（建议本冲刺，约 1~2 天）
-| 项 | 内容 | 对应 |
-| --- | --- | --- |
-| 1 | `mergeSettings`：云端 settings 与 defaultSettings 深合并 + 字段白名单校验，收口在 onSyncComplete/reducer | B1、A2 |
-| 2 | PIN 最低 8 位 + `hashPin(pin, salt)` 加盐 + 旧用户升级提示；GET 改 POST + body；save.ts 加 body 上限 | A1 |
-| 3 | 删除 importmap + `aistudiocdn.com` CSP 白名单 | A3 |
-| 4 | ContextMenu contextmenu 监听器泄漏修复 | S8 |
-| 5 | 版本对齐（package.json 1.1.0 ↔ CHANGELOG 1.1.1）、修正 AGENTS.md §8 Vitest 表述 | F1、E1 |
+> **全量闭环结论**：下述 4 个修复批次已于 2026-09-03 全量实施并通过回归验证，成果随版本 `v1.2.0` 发布。
 
-### 第二批：可靠性（约 1 天）
-- `debouncedPush` 执行时复查同步标志 + lastModified 短路（B6）
-- 初始加载失败阻断自动推送（B8）
-- `api/sync/save.ts` lastModified 最后写（或注释接受最终一致性）
-- 拖拽激活时取消长按计时器（D1 第一半）
+### 第一批：安全与崩溃风险（已闭环，Commit `dfde307`）
+| 项 | 内容 | 对应 | 落实状态 |
+| --- | --- | --- | --- |
+| 1 | `mergeSettings`：云端 settings 与 defaultSettings 深合并 + 字段白名单校验，收口在 onSyncComplete/reducer | B1、A2 | ✅ 已落地（`sanitizeSettings.ts` + AppContext reducer 双入口把关） |
+| 2 | PIN 最低 8 位 + PBKDF2-SHA256 派生凭据 + `/api/sync/migrate` 自动平滑迁移；GET 改 POST body 传参；`save.ts` 增 4MB 上限及校验 | A1 | ✅ 已落地 |
+| 3 | 删除 importmap + `aistudiocdn.com` CSP 白名单，`img-src` 收窄至 `https:` | A3 | ✅ 已落地 |
+| 4 | ContextMenu contextmenu 监听器泄漏修复 | S8 | ✅ 已落地 |
+| 5 | 版本对齐（package.json 1.1.0 ↔ CHANGELOG 1.1.1）、修正 AGENTS.md §8 Vitest 表述 | F1、E1 | ✅ 已落地（统一为 1.2.0 基线） |
 
-### 第三批：工程化补课（约 1~2 天）
-- 安装并启用 ESLint（配 `lint` 脚本）或删除死配置（E1）
-- Vitest 落地：先测 `security.ts` / `appReducer` / `syncManager`（E1）
-- 开启 `tsconfig.strict` 并清理 18 处 `any`（E2）
-- CSP 两处一致性策略写入 AGENTS.md §7（F2）
+### 第二批：可靠性（已闭环，Commit `7ed3cae`）
+- `debouncedPush` 内容指纹比对跳过冗余推送，解决拉取后二次回推（B6/P2-2）✅
+- `debouncedPush` 执行时复查同步状态，启用同步失败时支持回滚（B6）✅
+- 初始加载失败阻断自动推送，防止空数据冲掉远端数据（B8）✅
+- `api/sync/save.ts` 调整写入顺序为数据先写入、`lastModified` 最后写入（P7）✅
+- 拖拽激活时取消长按计时器，防止拖拽中弹出操作菜单（D1 前半）✅
 
-### 第四批：体验与清理（随版本迭代）
-- 手势状态机统一 + `touchAction` 动态化（D1）
-- Context value 记忆化 / 拆分 context（C1）
-- Tailwind 迁移构建期（C2/A3 联动）
-- i18n 收敛 + alert/confirm 替换（E5、D2）
-- 死代码二次清扫（E3）、README/文档同步（F3、F4）、时钟/横幅小修（B2、B3）
+### 第三批：工程化补课（已闭环，Commit `ae2ac99`）
+- 安装并落地 ESLint 9/10 flat config（`eslint.config.js`，配齐 `npm run lint` 脚本，清理死配置）（E1）✅
+- 落地 Vitest 测试框架（`vitest.config.ts`），建立针对 security、settingsSanitize、appReducer、syncManager 的 56 个单元测试（E1）✅
+- 开启 `tsconfig.json` 的 `strict: true`，清理 18 处 `any`（E2）✅
+- CSP 双轨策略（`vercel.json` 为生产权威，`index.html` 供本地 dev）正式写入 `AGENTS.md` §7 规范（F2）✅
+
+### 第四批：体验与清理（已闭环，Commit `5364306`）
+- 手势状态机完善：`touchAction` 仅在卡片拖拽激活期间设为 `none`（恢复移动端卡片表面常规滚动）；拖拽时抑制长按进度条动画（D1 后半）✅
+- Header 时钟增加 60s 定时器动态刷新（B2）✅；离线恢复横幅 5s 自动消退（B3）✅
+- 书签统一使用 `crypto.randomUUID()`，删除 `createdAt` 幽灵字段（B4）✅
+- `SyncModal` 状态改用实时事件订阅（B5）✅；`PageSkeleton` 预读已存列数消除跳动（B7）✅
+- Context value 与 actions 稳定引用记忆化，避免全树重渲染（C1）✅
+- localStorage 写入 300ms 防抖并在页面退出时 flush（C3）✅；共享单个 `useIsMobile` 模块级监听（C4）✅
+- 全站 9 处原生 `alert`/`confirm` 消除，引入统一的 `ConfirmDialog` 与 Toast（D2）✅
+- `<html lang>` 动态同步系统语言设置（D3）✅
+- Tailwind CSS 彻底迁移至构建期编译（PostCSS 管道），CSP `script-src` 收敛为 `'self'` 并清理 SW 无用规则（A3、C2）✅
+- i18n 多轨制统一收敛至 `getTranslation`（E5）✅；清理两处重复的 `Language` 类型定义（E4）✅
+- 死代码与文档全面清扫：清理废弃 hooks、无用 storage/rateLimit 函数，更新 README/AGENTS.md（E3、F3、F4）✅
 
 ---
 
@@ -297,7 +307,19 @@ manifest（standalone、双尺寸图标、theme 色）与 `vite-plugin-pwa`（au
 | CSP 配置处 | 2（meta 与 header，内容不一致） |
 | localStorage key | 7 个（含 1 个死键 `navhub_device_id`，生成后未使用） |
 
-### 7.3 与上轮审计的关系
+### 7.3 整改后复核度量数据（2026-09-03 实测，v1.2.0）
+
+| 命令 / 指标 | 审计基线（2026-09-02） | 整改闭环（2026-09-03） | 状态 |
+| --- | --- | --- | --- |
+| `npx tsc --noEmit` | ✅ 零错误（非 strict） | ✅ 零错误（`strict: true` 全开） | 提升 |
+| `npm test`（Vitest） | ❌ 无测试工具与文件 | ✅ 56 个单元测试全部通过 | 闭环 |
+| `npm run lint`（ESLint） | ❌ 无依赖，死配置 | ✅ ESLint flat config 0 告警 0 错误 | 闭环 |
+| `npm run build` | ✅ 成功（Tailwind CDN 运行时） | ✅ 成功（Tailwind 构建期编译，CSP 收紧至 'self'） | 提升 |
+| `any` 出现次数 | 18 处 | 0 处（彻底清零） | 闭环 |
+| 原生 `alert`/`confirm` | 9 处 | 0 处（全部改用 ConfirmDialog / Toast） | 闭环 |
+| CSP 脚本白名单 | 含 `'unsafe-inline'` 与第三方 CDN | 仅 `'self'`，无第三方 CDN 依赖 | 闭环 |
+
+### 7.4 与上轮审计的关系
 
 本报告不替代《[code-review-fix-plan.md](code-review-fix-plan.md)》，而是其**验收复核 + 增量审计**：上轮 P1~P7 的完成状态见第二节，其未竟子项（P1-B/C、P2-2、P5、P6 残留、P7 多数）已并入第三节问题清单并重新编号，修复建议与该方案保持一致。
 

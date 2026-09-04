@@ -167,7 +167,7 @@ WebNavigation/
 
 ## 11. 已知技术债（速查）
 
-最新审查结论与修复方案见 `doc/plans/audit-report-2026-09-02.md`（批次修复已完成：第一批 dfde307、第二批 7ed3cae、第三批 ae2ac99、第四批见本次提交）。已闭环项不再列；剩余开放项：
+最新审查结论与修复方案见 `doc/plans/audit-report-2026-09-02.md`（批次修复已全部完成：第一批 dfde307、第二批 7ed3cae、第三批 ae2ac99、第四批 5364306，发布至 v1.2.0）。已闭环项不再列；剩余开放项：
 
 1. **`isSafeUrl`/`validateUrl`/`sanitizeUrl` 协议语义**（低）：白名单形同虚设，实际语义为"仅拒绝 3 种危险协议"。为产品决策——本地应用协议（`spotify:`、`vscode:` 等）属有意支持，但 `ALLOWED_LOCAL_PROTOCOLS` 与"任意格式自定义协议放行"两套逻辑并存，易误导：建议明确为"白名单 ∪ 显式危险协议拦截"。硬编码 4->8 位 PIN 文案已 sync，但 `validatePin` 等错误文案仍为英文（依赖 UI 层翻译）.
 2. **Context 全量重渲染**（中期优化）：已消除 value/actions 容器引用变化（C1），但 useApp 消费者仍订阅整个 state； 书签量大时可拆分 State/Dispatch context 或引入选择器。
